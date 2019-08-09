@@ -1,0 +1,6 @@
+# standard dependencies
+numpy
+cython
+scipy<1.3
+cythongsl
+pandas<=0.24

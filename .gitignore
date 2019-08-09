@@ -1,0 +1,24 @@
+data/*
+docs/*
+*.DS_Store
+*~
+*.so
+*.o
+*.a
+*.pyc
+*.dSYM
+pypelid.egg-info/
+build/
+dist/
+pypelid/external/etc/docs
+*.pdf
+out/
+in/
+*sublime*
+*.hdf5
+*.dat
+*.fits
+
+# Automatically generated files:
+*.c
+*.html
