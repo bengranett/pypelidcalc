@@ -1,7 +1,8 @@
 import logging
 
 import numpy as np
-from pypelid.survey import phot, psf
+from . import phot, psf
+from pypelidcalc.cutils import interpolate
 from scipy import integrate
 
 def load_transmission_function(filename):
@@ -36,7 +37,7 @@ class Optics(object):
 
     logger = logging.getLogger(__name__)
 
-    params = ('telescope_collecting_surface', 'pix_size', 'pix_disp', 'lambda_range', 'transmission_path', 'psf_amp', 'psf_sig1', 'psf_sig2')
+    params = ('collecting_surface_area', 'pix_size', 'pix_disp', 'lambda_range', 'transmission_path', 'psf_amp', 'psf_sig1', 'psf_sig2')
 
     def __init__(self, config=None, seed=None, **kwargs):
         """ """
@@ -48,7 +49,7 @@ class Optics(object):
         for key, value in kwargs.items():
             self.config[key] = value
 
-        self.collecting_area = self.config['telescope_collecting_surface']
+        self.collecting_area = self.config['collecting_surface_area']
 
         self.PSF = psf.PSF_model(config['psf_amp'], config['psf_sig1'], config['psf_sig2'], seed=seed)
 
@@ -60,7 +61,7 @@ class Optics(object):
 
         # recompute length of spectrum in degrees (todo: change to pixel coordinates)
         self.grism_transmission = {}
-        self.grism_transmission[1] = load_transmission_function(filetools.get_path(self.config['transmission_path']))
+        self.grism_transmission[1] = load_transmission_function(self.config['transmission_path'])
 
     def transmission(self, wavelength, order=1):
         """ Compute transmission at wavelength

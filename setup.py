@@ -197,6 +197,7 @@ setup(
         'pypelidcalc.utils',
         'pypelidcalc.cutils',
         'pypelidcalc.spectra',
+        'pypelidcalc.widget',
         ],
 
     cmdclass = cmdclass,

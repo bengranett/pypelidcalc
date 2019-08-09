@@ -1,7 +1,7 @@
 import time
 
 import numpy as np
-import templatefit
+from templatefit import template_fit
 from IPython.display import display
 from ipywidgets import HTML, HBox, Button, Tab, Output, IntProgress
 from matplotlib import pyplot as plt
@@ -10,7 +10,7 @@ from scipy import interpolate
 import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget
 import pypelidcalc
 from pypelidcalc.spectra import galaxy, linesim
-from pypelidcalc.survey import phot
+from pypelidcalc.survey import phot, optics
 from pypelidcalc.utils import consts
 
 
@@ -75,9 +75,9 @@ class PypelidWidget(object):
             if nexp == 0:
                 continue
 
-            optics = optics.Optics(config, seed=time.time()*1e6)
+            O = optics.Optics(config, seed=time.time()*1e6)
 
-            L = linesim.LineSimulator(optics, extraction_sigma=self.analysis.widgets['extraction_sigma'].value)
+            L = linesim.LineSimulator(O, extraction_sigma=self.analysis.widgets['extraction_sigma'].value)
 
             det_bg = nexp * exp_time * config['darkcurrent'] + config['readnoise']**2
 
@@ -94,9 +94,9 @@ class PypelidWidget(object):
 
             for line, flux in emission_lines:
                 wavelength = (1 + gal.z) * consts.line_list[line]
-                signal = phot.flux_to_photon(flux, optics.collecting_area, wavelength)
+                signal = phot.flux_to_photon(flux, O.collecting_area, wavelength)
                 signal *= exp_time * nexp
-                signal *= optics.transmission(np.array([wavelength]), 1)[0]
+                signal *= O.transmission(np.array([wavelength]), 1)[0]
 
                 if signal <= 0:
                     continue
@@ -131,7 +131,7 @@ class PypelidWidget(object):
 
 
         zgrid = np.arange(0, 2,.001)
-        zfitter = templatefit.template_fit.TemplateFit(wavelength_scale, zgrid,
+        zfitter = template_fit.TemplateFit(wavelength_scale, zgrid, consts.line_list,
                     template_file=self.analysis.template_path)
 
 
