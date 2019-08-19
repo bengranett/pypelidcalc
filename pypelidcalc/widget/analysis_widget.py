@@ -1,7 +1,7 @@
 import os
 
 import pandas
-from IPython.display import display
+from IPython.display import display, clear_output
 from ipywidgets import Label, HTML, VBox, BoundedFloatText, BoundedIntText, Dropdown, Output
 
 
@@ -18,7 +18,7 @@ def get_template_files(dir=TEMPLATE_DIR):
 
 class Analysis(object):
     style = {'description_width': '200px'}
-    layout = {'width': '300px'}
+    layout = {'width': '400px'}
 
     widgets = {
         'nloops': BoundedIntText(value=1000, min=1, max=1e6, step=1, description='Numer of realizations'),
@@ -51,6 +51,7 @@ class Analysis(object):
 
     def show_template_table(self, change=None):
         with self.widgets['output']:
+            clear_output()
             display(Label(self.widgets['zmeas_template_file'].value))
             self.template_path = os.path.join(TEMPLATE_DIR, self.widgets['zmeas_template_file'].value)
             table = pandas.read_csv(self.template_path, sep=",")

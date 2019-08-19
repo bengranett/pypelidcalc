@@ -19,7 +19,13 @@ cdef class PSF_model:
 
     def __init__(self, double amp, double scale1, double scale2, double range_max=3.0, double step=0.1, seed=None):
         """ """
-        cdef double smax
+        cdef double smin, smax
+
+        if amp > 1.:
+            amp = 1.
+
+        if amp < 0.:
+            amp = 0.
 
         self.amp = amp
         self.is_null = 1
@@ -30,24 +36,41 @@ cdef class PSF_model:
         if scale1 > 0:
             self.var1 = 1./(2 * scale1 * scale1)
             self.is_null = 0
+        else:
+            self.amp = 0
 
         if scale2 > 0:
             self.var2 = 1./(2 * scale2 * scale2)
             self.is_null = 0
+        else:
+            self.amp = 1
+
+        if scale1 < scale2 and scale1 > 0:
+            smin = scale1
+        else:
+            smin = scale2
 
         if scale1 > scale2:
             smax = scale1
         else:
             smax = scale2
 
+        if amp <= 0:
+            smin = scale2
+        if amp >= 1:
+            smin = scale1
+
+        if smin <= 0 or smax <= 0:
+            self.is_null = 1
+
         self.range_max = range_max * smax
-        self.step = step * smax
+        self.step = step * smin
         self._init_model()
 
     def __cinit__(self, *args, **kwargs):
         """ """
         cdef unsigned long int seed
-        if kwargs['seed'] is not None:
+        if 'seed' in kwargs and kwargs['seed'] is not None:
             seed = kwargs['seed']
         else:
             seed = time.time()
@@ -62,7 +85,17 @@ cdef class PSF_model:
 
     cdef double prof_scalar(self, double r) nogil:
         """ """
-        return (self.amp*self.var1*math.exp(-r*r*self.var1) + (1-self.amp)*self.var2*math.exp(-r*r*self.var2))/math.M_PI
+        if self.is_null:
+            if r == 0:
+                return 1
+            else:
+                return 0
+        if self.amp >= 1:
+            return self.var1*math.exp(-r*r*self.var1)/math.M_PI
+        elif self.amp <= 0:
+            return self.var2*math.exp(-r*r*self.var2)/math.M_PI
+        else:
+            return (self.amp*self.var1*math.exp(-r*r*self.var1) + (1-self.amp)*self.var2*math.exp(-r*r*self.var2))/math.M_PI
 
     cpdef double[:] prof(self, double[:] r):
         """ """
@@ -72,9 +105,6 @@ cdef class PSF_model:
         n = r.shape[0]
         profile = cvarray(shape=(n,), itemsize=sizeof(double), format='d')
 
-        if self.is_null:
-            return profile
-
         with nogil:
             for i in range(n):
                 profile[i] = self.prof_scalar(r[i])
@@ -83,7 +113,18 @@ cdef class PSF_model:
 
     cdef double evaluate_scalar(self, double r) nogil:
         """ """
-        return self.amp * (1 - math.exp(-r * r * self.var1)) + (1 - self.amp) * (1 - math.exp(-r * r * self.var2))
+        if r <= 0.:
+            return 0.
+
+        if self.is_null:
+            return 1
+
+        if self.amp >= 1:
+            return 1 - math.exp(-r * r * self.var1)
+        elif self.amp <= 0:
+            return 1 - math.exp(-r * r * self.var2)
+        else:
+            return self.amp * (1 - math.exp(-r * r * self.var1)) + (1 - self.amp) * (1 - math.exp(-r * r * self.var2))
 
     cpdef double[:] evaluate(self, double[:] r):
         """ Evalutate integrated profile. """
@@ -92,9 +133,6 @@ cdef class PSF_model:
 
         n = r.shape[0]
         profile = cvarray(shape=(n,), itemsize=sizeof(double), format='d')
-
-        if self.is_null:
-            return profile
 
         with nogil:
             for i in range(n):
@@ -115,6 +153,8 @@ cdef class PSF_model:
 
         n = <int>(self.range_max / self.step)
 
+        assert n > 1
+
         r = cvarray(shape=(n,), itemsize=sizeof(double), format='d')
         y = cvarray(shape=(n,), itemsize=sizeof(double), format='d')
 
@@ -124,8 +164,18 @@ cdef class PSF_model:
             for i in range(1, n):
                 r[i] = i * self.step
                 y[i] = self.evaluate_scalar(r[i])
+                if y[i] <= y[i-1]:
+                    r = r[:i]
+                    y = y[:i]
+                    n = i
+                    break
 
-        logging.debug("integ prof r=%f: %f, r=%f: %f", r[0], y[0], r[n-1], y[n-1])
+        if n < 2:
+            raise ValueError("PSF profile is ill-defined.  Reduce step size.  %s", str(np.array(y)))
+
+        if y[n-1] <= y[n-2]:
+            raise ValueError("PSF profile is not increasing: %s", str(np.array(y)))
+
         self._integ_prof = interpolate.interp1d(y, r, fill_low=0, fill_high=1)
 
     cpdef double[:,:] sample(self, int n):
