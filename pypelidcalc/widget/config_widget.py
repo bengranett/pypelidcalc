@@ -2,7 +2,7 @@ from collections import OrderedDict
 import gzip
 import StringIO
 
-from ipywidgets import VBox, Textarea, Button, Text
+from ipywidgets import VBox, HTML, Textarea, Button, Text
 
 import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget
 
@@ -29,7 +29,6 @@ class Config(object):
 
     widgets = {
         'configarea': Textarea(value='', placeholder='# paste config parameters here', description='Configuration'),
-        'short': Text(description='quick code:')
     }
 
     def __init__(self, widget_list):
@@ -38,11 +37,14 @@ class Config(object):
 
         self.widgets['configarea'].layout = self.layout
 
-        button = Button(description="Load", icon='play')
+        button = Button(description="Apply")
+        button.style.button_color = 'lightgreen'
 
         button.on_click(self.load_params)
 
-        self.widget = VBox([self.widgets['configarea'], self.widgets['short'], button])
+        message = HTML("Paste a configuration set here.")
+
+        self.widget = VBox([message,self.widgets['configarea'], button])
 
         self.update()
 
@@ -63,8 +65,6 @@ class Config(object):
         for key, value in params.items():
             param_listing += "%s = %s\n"%(key, value)
         self.widgets['configarea'].value = param_listing
-
-        # self.get_short()
 
     def load_params(self, button):
         """ """
@@ -98,15 +98,5 @@ class Config(object):
         param_listing = "\n".join(parsed_lines)
         # self.widgets['configarea'].value = param_listing
         self.update()
-
-    def get_short(self):
-        config = self.widgets['configarea'].value
-        config = config.replace(" ", "")
-        data = StringIO.StringIO()
-        with gzip.GzipFile(fileobj=data, mode='w') as f:
-            f.write(config)
-        s = data.getvalue().encode('hex')
-        self.widgets['short'].value = s
-
 
 

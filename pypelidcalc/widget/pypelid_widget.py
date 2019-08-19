@@ -202,7 +202,7 @@ class PypelidWidget(object):
             x = (e[1:]+e[:-1])/2.
 
             fig2 = go.Figure(data=go.Scatter(x=x, y=h, name='Measured redshift'))
-            fig2.add_trace(go.Scatter(x=zgrid, y=np.mean(prob_z, axis=0), name='p(z)'))
+            # fig2.add_trace(go.Scatter(x=zgrid, y=np.mean(prob_z, axis=0), name='p(z)'))
             fig2.update_layout(xaxis_title='Redshift',
                               yaxis_title='Distribution',margin=dict(l=0, r=0, t=0, b=80, pad=0))
 

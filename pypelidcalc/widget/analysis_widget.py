@@ -21,7 +21,7 @@ class Analysis(object):
     layout = {'width': '400px'}
 
     widgets = {
-        'nloops': BoundedIntText(value=1000, min=1, max=1e6, step=1, description='Numer of realizations'),
+        'nloops': BoundedIntText(value=100, min=1, max=1e6, step=1, description='Number of realizations'),
         'zmeas_template_file': Dropdown(options=get_template_files(), description='Spec templates file'),
         'extraction_sigma': BoundedFloatText(value=2, min=0, max=100, step=0.1, description='Extraction kernel width (pixels)'),
         'zmin':  BoundedFloatText(value=0, min=0, max=10, step=0.1, description='Redshift grid min'),
