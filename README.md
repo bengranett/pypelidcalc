@@ -5,7 +5,7 @@ Pypelid Calc
 
 Contact
 -------
-Ben Granett (https://github.com/bengranett/pypelid-snr)
+Ben Granett (https://github.com/bengranett/pypelidcalc)
 
 Web app
 -------
