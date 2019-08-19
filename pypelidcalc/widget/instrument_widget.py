@@ -2,7 +2,7 @@ import os
 import numpy as np
 from IPython.display import display,clear_output
 from ipywidgets import HTML, HBox, VBox, BoundedFloatText, Dropdown, Output, Label
-from matplotlib import pyplot as plt
+import plotly.graph_objects as go
 
 from pypelidcalc.survey import psf
 
@@ -69,6 +69,10 @@ class Instrument(object):
 
         self.update(**configurations[self.widgets['config'].value])
 
+        self.widgets['plot'].layout = {'width': '500px', 'height': '300px'}
+        self.widgets['psfplot'].layout = {'width': '500px', 'height': '300px'}
+
+
         self.widgets['config'].observe(self.change_config, names='value')
         self.widgets['transmission_red'].observe(self.plot_transmission, names='value')
         self.widgets['transmission_blue'].observe(self.plot_transmission, names='value')
@@ -93,9 +97,6 @@ class Instrument(object):
             [VBox(elements),
             VBox([self.widgets['plot'], self.widgets['psfplot'], self.widgets['radius1'], self.widgets['radius2']])]
         )
-
-        self.plot_transmission()
-        self.plot_psf()
 
     def update(self, **kwargs):
         """ """
@@ -128,9 +129,7 @@ class Instrument(object):
 
             clear_output(wait=True)
 
-            fig = plt.figure(0)
-            fig.clear()
-            ax = plt.gca()
+            fig = go.Figure()
 
             for key in ['transmission_red', 'transmission_blue']:
 
@@ -151,14 +150,14 @@ class Instrument(object):
                 x = x[a:b]
                 y = y[a:b]
 
-                ax.plot(x, y, c=colors[key], lw=2, label=self.widgets[key].value)
+                fig.add_trace(go.Scatter(x=x/1e4, y=y, name=self.widgets[key].value))
 
-            ax.grid()
-            ax.legend()
-            ax.set_xlabel("Wavelength")
-            ax.set_ylabel("Efficiency")
+            fig.update_layout(xaxis_title='Wavelength (micron)',
+                              yaxis_title='Efficiency %',
+                              width=500, height=300,
+                              margin=dict(l=0, r=0, t=0, b=80, pad=0),autosize=False)
+
             display(fig)
-            # show_inline_matplotlib_plots()
 
     def plot_psf(self, change=None):
         """ """
@@ -180,35 +179,18 @@ class Instrument(object):
 
             clear_output(wait=True)
 
-            fig = plt.figure(1)
-            fig.clear()
-            ax = plt.gca()
-            ax2 = ax.twinx()
+            x = np.linspace(0,np.ceil(PSF.radius(0.95)),100)
+            y = np.array(PSF.prof(x))
+            yinteg = np.array(PSF.evaluate(x))
+
+            fig = go.Figure(data=go.Scatter(x=x, y=y/y.max(), name='Profile'))
+            fig.add_trace(go.Scatter(x=x, y=yinteg, name='Integrated'))
 
 
-            x = np.linspace(0,10,100)
-            y = PSF.prof(x)
-            yinteg = PSF.evaluate(x)
+            fig.update_layout(xaxis_title='Radius (pixel)',
+                              yaxis_title='PSF', width=500, height=300,
+                              margin=dict(l=0, r=0, t=0, b=80, pad=0),autosize=False)
 
-            ax.fill_between(x, y, color='lightgrey', zorder=0)
-            ax.plot(x, y, color='grey', lw=2, zorder=10)
-
-
-            ax2.fill([0,r2,r2,0],[0,0,0.8,0.8], c='c', alpha=0.5, zorder=1)
-            ax2.fill([0,r1,r1,0],[0,0,0.5,0.5], c='orange', alpha=0.5, zorder=2)
-
-            ax2.plot(x, yinteg, c='purple', lw=2, zorder=10)
-            ax2.set_ylim(0, 1)
-            ax2.set_ylabel("Integrated profile", color='purple')
-            ax2.tick_params('y', colors='purple')
-
-            a, b = ax.get_ylim()
-            ax.set_ylim(0, b)
-
-            ax.grid()
-            ax.legend()
-            ax.set_xlabel("Radius (pixel)")
-            ax.set_ylabel("PSF")
             display(fig)
 
 

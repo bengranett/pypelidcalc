@@ -4,7 +4,6 @@ import numpy as np
 from templatefit import template_fit
 from IPython.display import display
 from ipywidgets import HTML, HBox, Button, Tab, Output, IntProgress
-from matplotlib import pyplot as plt
 from scipy import interpolate
 
 import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget
@@ -13,8 +12,8 @@ from pypelidcalc.spectra import galaxy, linesim
 from pypelidcalc.survey import phot, optics
 from pypelidcalc.utils import consts
 
+import plotly.graph_objects as go
 
-plt.ioff()
 
 def combine_spectra(wavelength_scale, specset):
     """ """
@@ -30,6 +29,17 @@ def combine_spectra(wavelength_scale, specset):
     fstack[ii] /= norm[ii]
     norm[ii] = 1./norm[ii]
     return fstack, norm
+
+
+def centroidz(z, pz, window=5):
+    """ """
+    ibest = np.argmax(pz)
+    low = max(0, ibest - window)
+    high = min(len(pz), ibest + window + 1)
+    sel = slice(low, high)
+    z = z[sel]
+    pz = pz[sel]
+    return np.sum(z * pz)/np.sum(pz)
 
 
 class PypelidWidget(object):
@@ -130,7 +140,7 @@ class PypelidWidget(object):
         wavelength_scale = np.arange(wavelength_min, wavelength_max, dispersion)
 
 
-        zgrid = np.arange(0, 2,.001)
+        zgrid = np.arange(self.analysis.widgets['zmin'].value, self.analysis.widgets['zmax'].value,self.analysis.widgets['zstep'].value)
         zfitter = template_fit.TemplateFit(wavelength_scale, zgrid, consts.line_list,
                     template_file=self.analysis.template_path)
 
@@ -143,6 +153,7 @@ class PypelidWidget(object):
         real_stack = []
 
         prob_z = []
+        zmeas = []
 
         for loop in range(nloops):
             specset = []
@@ -159,7 +170,9 @@ class PypelidWidget(object):
             invvar[ii] = 1./var_stack[ii]
 
             amp = zfitter.template_fit(flux_stack, invvar, 2)
-            prob_z.append(np.array(zfitter.pz()))
+            pz = np.array(zfitter.pz())
+            prob_z.append(pz)
+            zmeas.append(centroidz(zgrid, pz))
 
             self.progress.value = loop
 
@@ -169,21 +182,11 @@ class PypelidWidget(object):
 
         with self.plot:
             self.plot.clear_output()
-            fig = plt.figure(figsize=(16.5, 3))
-            # limits = []
-            # colors = ['hotpink', 'dodgerblue']
-            # for i in range(len(m)):
-            #     sig = var[i]**.5
-            #     plt.fill_between(wavelength_scales[i], -sig, sig, color=colors[i], alpha=0.5)
-            #     # plt.plot(wavelength_scales[i], m[i], lw=2, c=colors[i], zorder=10)
-            #     # limits.append((m[i].max(), np.median(var[i])**.5))
-            #     print "SNR %i: %g"%(i, np.sqrt(np.sum(m[i]**2/var[i])))
 
-            plt.plot(wavelength_scale, m, lw=2, c='k', zorder=11)
-            sig = var**0.5
-            plt.fill_between(wavelength_scale, -sig, sig, color='grey', alpha=0.5)
-
-            plt.grid(True)
+            fig = go.Figure(data=go.Scatter(x=wavelength_scale/1e4, y=m, name='Signal'))
+            fig.add_trace(go.Scatter(x=wavelength_scale/1e4, y=var**0.5, name='Noise'))
+            fig.update_layout(xaxis_title='Wavelength (micron)',
+                              yaxis_title='Flux density',margin=dict(l=0, r=0, t=0, b=80, pad=0))
 
             ii = var>0
             print "SNR stack: %g"%np.sqrt(np.sum(m[ii]**2/var[ii]))
@@ -191,22 +194,31 @@ class PypelidWidget(object):
             a = np.max(m)
             b = np.median(var)**0.5
 
-            plt.ylim(-b, a+b)
-            plt.xlim(wavelength_scale.min(), wavelength_scale.max())
-            plt.xlabel("Wavelength (A)")
-            plt.ylabel("Flux density")
             display(fig)
-            # show_inline_matplotlib_plots()
 
-            fig2 = plt.figure(figsize=(16.5, 3))
-            plt.semilogy(zgrid, np.mean(prob_z, axis=0))
-            plt.grid()
-            plt.xlabel("Redshift")
-            plt.ylabel("p(z)")
+            h, e = np.histogram(zmeas, bins=zgrid)
+            h = h * 1./ np.sum(h)
+            x = (e[1:]+e[:-1])/2.
+
+            fig2 = go.Figure(data=go.Scatter(x=x, y=h, name='Measured redshift'))
+            fig2.add_trace(go.Scatter(x=zgrid, y=np.mean(prob_z, axis=0), name='p(z)'))
+            fig2.update_layout(xaxis_title='Redshift',
+                              yaxis_title='Distribution',margin=dict(l=0, r=0, t=0, b=80, pad=0))
+
             display(fig2)
 
 
+
+
         button.disabled = False
+
+    def tab_event(self, change):
+        if change['type'] == 'change' and change['name'] == 'selected_index':
+            if change['new'] == 2:
+                self.instrument.plot_transmission()
+                self.instrument.plot_psf()
+
+
 
     def show(self):
         """ """
@@ -217,6 +229,8 @@ class PypelidWidget(object):
         tab.set_title(2, "Instrument")
         tab.set_title(3, "Survey")
         tab.set_title(4, "Analysis")
+
+        tab.observe(self.tab_event)
 
         display(tab)
 

@@ -38,27 +38,28 @@ cdef class PSF_model:
             self.is_null = 0
         else:
             self.amp = 0
+            scale1 = scale2
 
         if scale2 > 0:
             self.var2 = 1./(2 * scale2 * scale2)
             self.is_null = 0
         else:
             self.amp = 1
+            scale2 = scale1
 
-        if scale1 < scale2 and scale1 > 0:
+        if scale1 < scale2:
             smin = scale1
+            smax = scale2
         else:
             smin = scale2
-
-        if scale1 > scale2:
             smax = scale1
-        else:
-            smax = scale2
 
         if amp <= 0:
             smin = scale2
+            smax = scale2
         if amp >= 1:
             smin = scale1
+            smax = scale1
 
         if smin <= 0 or smax <= 0:
             self.is_null = 1
