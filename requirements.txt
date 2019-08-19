@@ -1,6 +1,11 @@
-# standard dependencies
 numpy
-cython
 scipy<1.3
-cythongsl
 pandas<=0.24
+
+cython
+cythongsl
+plotly
+
+templatefit @ git+https://github.com/bengranett/templatefit@master#egg=templatefit-0
+
+ipywidgets
