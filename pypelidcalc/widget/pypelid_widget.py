@@ -6,7 +6,7 @@ from IPython.display import display
 from ipywidgets import HTML, HBox, Button, Tab, Output, IntProgress
 from scipy import interpolate
 
-import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget
+import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget, config_widget
 import pypelidcalc
 from pypelidcalc.spectra import galaxy, linesim
 from pypelidcalc.survey import phot, optics
@@ -50,6 +50,7 @@ class PypelidWidget(object):
         self.galaxy = galaxy_widget.Galaxy()
         self.analysis = analysis_widget.Analysis()
         self.survey = survey_widget.Survey()
+        self.config = config_widget.Config((self.galaxy, self.foreground, self.instrument, self.survey, self.analysis))
         self.progress = IntProgress(bar_style='success')
         self.plot = Output(layout={'width':'1000px'})
 
@@ -217,18 +218,21 @@ class PypelidWidget(object):
             if change['new'] == 2:
                 self.instrument.plot_transmission()
                 self.instrument.plot_psf()
+            elif change['new'] == 5:
+                self.config.update()
 
 
 
     def show(self):
         """ """
         display(HTML("Pypelidcalc version: %s"%pypelidcalc.__version__))
-        tab = Tab([self.galaxy.widget, self.foreground.widget, self.instrument.widget, self.survey.widget, self.analysis.widget])
+        tab = Tab([self.galaxy.widget, self.foreground.widget, self.instrument.widget, self.survey.widget, self.analysis.widget, self.config.widget])
         tab.set_title(0, "Source")
         tab.set_title(1, "Foreground")
         tab.set_title(2, "Instrument")
         tab.set_title(3, "Survey")
         tab.set_title(4, "Analysis")
+        tab.set_title(5, "Config")
 
         tab.observe(self.tab_event)
 

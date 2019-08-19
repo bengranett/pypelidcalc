@@ -9,6 +9,8 @@ class Foreground(object):
         'foreground': BoundedFloatText(value=1, min=0, max=1e6, step=0.1, description='foreground counts (elec/s/pix)'),
     }
 
+    params = ('foreground', )
+
     def __init__(self):
         """ """
         for key, widget in self.widgets.items():

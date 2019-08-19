@@ -20,6 +20,8 @@ class Survey(object):
 
     }
 
+    params = ('exp_time', 'nexp_red', 'nexp_blue')
+
     def __init__(self):
         """ """
         self._set_custom = True

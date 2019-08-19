@@ -29,6 +29,12 @@ class Galaxy(object):
         'flux_o2': BoundedFloatText(value=0, min=0, max=1000, step=0.1, description='Flux OII 3727 ($10^{-16}$ erg/cm2/s):'),
     }
 
+    params = ('redshift', 'bulge_scale', 'disk_scale', 'bulge_fraction',
+              'axis_ratio',
+              'velocity_dispersion', 'flux_ha', 'flux_n2a', 'flux_n2b',
+              'flux_hb', 'flux_o3a', 'flux_o3b', 'flux_s2a', 'flux_s2b',
+              'flux_o2')
+
     def __init__(self):
         for key, widget in self.widgets.items():
             widget.style = self.style

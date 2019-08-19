@@ -31,6 +31,8 @@ class Analysis(object):
         'output': Output(layout={'width':'800px'}),
     }
 
+    params = ('nloops', 'zmeas_template_file', 'extraction_sigma', 'zmin', 'zmax', 'zstep')
+
     def __init__(self):
         """ """
         for key, widget in self.widgets.items():

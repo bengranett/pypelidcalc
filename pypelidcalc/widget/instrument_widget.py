@@ -60,6 +60,11 @@ class Instrument(object):
 
     }
 
+    params = ('collecting_surface_area', 'pix_size', 'pix_disp',
+              'psf_amp', 'psf_sig1', 'psf_sig2',
+              'readnoise', 'darkcurrent',
+              'transmission_red', 'transmission_blue')
+
     def __init__(self):
         self._set_custom = True
 
