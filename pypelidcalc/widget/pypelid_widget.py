@@ -3,7 +3,7 @@ import time
 import numpy as np
 from templatefit import template_fit
 from IPython.display import display
-from ipywidgets import HTML, HBox, Button, Tab, Output, IntProgress
+from ipywidgets import HTML, HBox, VBox, Button, Tab, Output, IntProgress, Label
 from scipy import interpolate
 
 import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget, config_widget
@@ -44,6 +44,17 @@ def centroidz(z, pz, window=5):
 
 class PypelidWidget(object):
     """ """
+
+    widgets = {
+        'snrbox': Label(layout={'border':'solid 1px green', 'width': '100px'}),
+        'zmeas': Label(layout={'border':'solid 1px green', 'width': '100px'}),
+        'zerr': Label(layout={'border':'solid 1px green', 'width': '100px'}),
+        'zerr_68': Label(layout={'border':'solid 1px green', 'width': '100px'}),
+        'zerr_sys': Label(layout={'border':'solid 1px green', 'width': '100px'}),
+        'zerr_cat': Label(layout={'border':'solid 1px green', 'width': '100px'}),
+
+    }
+
     def __init__(self):
         self.instrument = instrument_widget.Instrument()
         self.foreground = foreground_widget.Foreground()
@@ -142,7 +153,7 @@ class PypelidWidget(object):
 
 
         zgrid = np.arange(self.analysis.widgets['zmin'].value, self.analysis.widgets['zmax'].value,self.analysis.widgets['zstep'].value)
-        zfitter = template_fit.TemplateFit(wavelength_scale, zgrid, consts.line_list,
+        zfitter = template_fit.TemplateFit(wavelength_scale, zgrid, consts.line_list, res=self.analysis.widgets['templ_res'].value,
                     template_file=self.analysis.template_path)
 
 
@@ -177,9 +188,39 @@ class PypelidWidget(object):
 
             self.progress.value = loop
 
+        self.progress.value = 0
 
+        zmeas = np.array(zmeas)
         m = np.mean(real_stack, axis=0)
         var = np.var(real_stack, axis=0)
+
+
+        ii = var > 0
+        snr = np.sqrt(np.sum(m[ii]**2/var[ii]))
+        self.widgets['snrbox'].value = "%3.2f"%snr
+
+        ztrue = self.galaxy.widgets['redshift'].value
+
+        ztol = self.analysis.widgets['ztol'].value
+
+        dz = np.abs(zmeas - ztrue)
+        sel = dz < ztol
+        z = np.mean(zmeas[sel])
+
+        dzobs = np.abs(zmeas - z)
+
+        dz68 = np.percentile(dzobs[sel], 68)
+        self.widgets['zerr_68'].value = "%3.2e"%dz68
+        self.widgets['zerr_sys'].value = "%g"%((ztrue-z)*np.sqrt(np.sum(sel))/dz68)
+        self.widgets['zerr_cat'].value = "%f"%(1 - np.sum(sel) * 1. / len(zmeas))
+
+        self.widgets['zmeas'].value = "%g"%z
+        self.widgets['zerr'].value = "%3.2e"%(ztrue - z)
+
+        h, e = np.histogram(zmeas, bins=zgrid)
+        h = h * 1./ np.sum(h)
+        x = (e[1:]+e[:-1])/2.
+
 
         with self.plot:
             self.plot.clear_output()
@@ -189,22 +230,27 @@ class PypelidWidget(object):
             fig.update_layout(xaxis_title='Wavelength (micron)',
                               yaxis_title='Flux density',margin=dict(l=0, r=0, t=0, b=80, pad=0))
 
-            ii = var>0
-            print "SNR stack: %g"%np.sqrt(np.sum(m[ii]**2/var[ii]))
-
-            a = np.max(m)
-            b = np.median(var)**0.5
-
             display(fig)
-
-            h, e = np.histogram(zmeas, bins=zgrid)
-            h = h * 1./ np.sum(h)
-            x = (e[1:]+e[:-1])/2.
 
             fig2 = go.Figure(data=go.Scatter(x=x, y=h, name='Measured redshift'))
             # fig2.add_trace(go.Scatter(x=zgrid, y=np.mean(prob_z, axis=0), name='p(z)'))
             fig2.update_layout(xaxis_title='Redshift',
                               yaxis_title='Distribution',margin=dict(l=0, r=0, t=0, b=80, pad=0))
+
+            fig2.update_layout(
+                shapes=[go.layout.Shape(
+                       type="rect",
+                       xref="x",
+                        yref="paper",
+                        x0=self.galaxy.widgets['redshift'].value-ztol,
+                        y0=0,
+                        x1=self.galaxy.widgets['redshift'].value+ztol,
+                        y1=1,
+                        fillcolor="LightSalmon",
+                        opacity=0.5,
+                        layer="below",
+                        line_width=0,
+                    ),])
 
             display(fig2)
 
@@ -242,5 +288,17 @@ class PypelidWidget(object):
 
         button.on_click(self.run)
 
-        display(HBox([button, self.progress]))
+        elements =  [HBox([button, self.progress])]
+        elements += [HTML('<b>Redshift measurement statistics</b>')]
+        elements += [HBox([HTML('<b>SNR:</b>'), self.widgets['snrbox']])]
+        horiz = [HTML('<b>Mean z:</b>'), self.widgets['zmeas']]
+        horiz += [HTML('<b>Error:</b>'), self.widgets['zerr']]
+        horiz += [HTML('<b>68% limit:</b>'), self.widgets['zerr_68']]
+        horiz += [HTML('<b>Fractional systematic:</b>'), self.widgets['zerr_sys']]
+        horiz += [HTML('<b>Outlier rate:</b>'), self.widgets['zerr_cat']]
+
+        elements += [HBox(horiz)]
+
+        display(VBox(elements))
+
         display(self.plot)

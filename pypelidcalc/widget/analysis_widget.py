@@ -27,11 +27,13 @@ class Analysis(object):
         'zmin':  BoundedFloatText(value=0, min=0, max=10, step=0.1, description='Redshift grid min'),
         'zmax':  BoundedFloatText(value=3, min=0, max=10, step=0.1, description='Redshift grid max'),
         'zstep':  BoundedFloatText(value=0.001, min=0, max=0.01, step=0.0005, description='Redshift grid step'),
+        'templ_res':  BoundedIntText(value=5, min=1, max=100, step=1, description='Resolution parameter'),
+        'ztol': BoundedFloatText(value=0.01, min=0.0001, max=1, step=0.0005, description='Redshift error tolerance'),
 
         'output': Output(layout={'width':'800px'}),
     }
 
-    params = ('nloops', 'zmeas_template_file', 'extraction_sigma', 'zmin', 'zmax', 'zstep')
+    params = ('nloops', 'zmeas_template_file', 'extraction_sigma', 'zmin', 'zmax', 'zstep', 'ztol', 'templ_res')
 
     def __init__(self):
         """ """
@@ -46,7 +48,7 @@ class Analysis(object):
         elements += [HTML('<b>Statistics</b>'), self.widgets['nloops']]
         elements += [HTML('<b>Extraction</b>'), self.widgets['extraction_sigma']]
         elements += [HTML('<b>Redshift measurement</b>'), self.widgets['zmeas_template_file'],
-                    self.widgets['zmin'], self.widgets['zmax'], self.widgets['zstep']]
+                    self.widgets['zmin'], self.widgets['zmax'], self.widgets['zstep'], self.widgets['templ_res'], self.widgets['ztol']]
 
 
         bot = VBox([HTML('<b>Spec templates table</b>'), self.widgets['output']], layout={'width':'800px', 'display':'flex'})
