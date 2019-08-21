@@ -58,6 +58,7 @@ class Optics(object):
 
         self.lambda_start, self.lambda_end = self.config['lambda_range']
         self.lambda_range = self.lambda_end - self.lambda_start
+        self.lambda_ref = (self.lambda_start + self.lambda_end)/2.
 
         # recompute length of spectrum in degrees (todo: change to pixel coordinates)
         self.grism_transmission = {}

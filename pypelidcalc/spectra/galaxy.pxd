@@ -6,6 +6,7 @@ ctypedef struct el_struct:
     double flux
     double variance
     double background
+    int rest_frame
 
 ctypedef struct galaxy_struct:
 

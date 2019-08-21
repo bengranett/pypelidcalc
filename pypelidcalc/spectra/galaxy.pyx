@@ -70,6 +70,7 @@ cdef class Galaxy:
             e.flux = 0
             e.variance = 0
             e.background = 0
+            e.rest_frame = 1
 
 
     def __dealloc__(self):
@@ -152,7 +153,7 @@ cdef class Galaxy:
         out = "< Galaxy\n"
         out += "  %i emission lines:\n"%self.gal.line_count
         for i in range(self.gal.line_count):
-            out += "    %i) %gA:\t%g\t%g\t%g\n"%(i+1, self.gal.emission_line[i].wavelength, self.gal.emission_line[i].flux, self.gal.emission_line[i].variance, self.gal.emission_line[i].background)
+            out += "    %i) %gA:\t%g\t%g\t%g\t%g\t%g\n"%(i+1, self.gal.emission_line[i].wavelength, self.gal.emission_line[i].wavelength_obs, self.gal.emission_line[i].flux, self.gal.emission_line[i].variance, self.gal.emission_line[i].background, self.gal.emission_line[i].rest_frame)
         out += "  bulge_scale: %g\n"%self.gal.bulge_scale
         out += "  disk_scale: %g\n"%self.gal.disk_scale
         out += "  bulge_fraction: %g\n"%self.gal.bulge_fraction
@@ -166,7 +167,7 @@ cdef class Galaxy:
         for key, value in params.items():
             self.__setattr__(key, value)
 
-    def append_line(self, wavelength, wavelength_obs=None, flux=None, variance=None, background=None):
+    def append_line(self, wavelength, wavelength_obs=None, flux=None, variance=None, background=None, rest_frame=None):
         """ """
         cdef int i, n, l, m, k, scalar
         cdef el_struct * new_list
@@ -184,11 +185,13 @@ cdef class Galaxy:
             if not variance: variance = 0
             if not background: background = 0
             if not wavelength_obs: wavelength_obs = 0
+            if rest_frame is None: rest_frame = 1
         else:
             if flux is None: flux = np.zeros(l, dtype='d')
             if variance is None: variance = np.zeros(l, dtype='d')
             if background is None: background = np.zeros(l, dtype='d')
             if wavelength_obs is None: wavelength_obs = np.zeros(l, dtype='d')
+            if rest_frame is None: rest_frame = np.ones(l, dtype=int)
 
         m = n + l
 
@@ -205,6 +208,7 @@ cdef class Galaxy:
             new_list[n].flux = flux
             new_list[n].variance = variance
             new_list[n].background = background
+            new_list[n].rest_frame = rest_frame
         else:
             for i in range(l):
                 k = n + i
@@ -213,6 +217,7 @@ cdef class Galaxy:
                 new_list[k].flux = flux[i]
                 new_list[k].variance = variance[i]
                 new_list[k].background = background[i]
+                new_list[k].rest_frame = rest_frame[i]
 
         self.gal.emission_line = new_list
 
@@ -228,15 +233,16 @@ cdef class Galaxy:
             el_list['flux'].append(el[i].flux)
             el_list['variance'].append(el[i].variance)
             el_list['background'].append(el[i].background)
+            el_list['rest_frame'].append(el[i].rest_frame)
         return el_list
 
-    def set_emission_lines(self, wavelength=None, wavelength_obs=None, flux=None, variance=None, background=None):
+    def set_emission_lines(self, wavelength=None, wavelength_obs=None, flux=None, variance=None, background=None, rest_frame=None):
         """ """
         self.gal.line_count = 0
         if wavelength is None:
             return
 
-        self.append_line(wavelength, wavelength_obs, flux, variance, background)
+        self.append_line(wavelength, wavelength_obs, flux, variance, background, rest_frame)
 
     cdef galaxy_struct *  get_struct(self):
         """ """
@@ -248,7 +254,10 @@ cdef class Galaxy:
         cdef el_struct * el = self.gal.emission_line
 
         for i in range(self.gal.line_count):
-            el[i].wavelength_obs = (1 + z) * el[i].wavelength
+            if el[i].rest_frame:
+                el[i].wavelength_obs = (1 + z) * el[i].wavelength
+            else:
+                el[i].wavelength_obs = el[i].wavelength
 
     cpdef double [:,:] sample(self, int n, double plate_scale):
         """ """

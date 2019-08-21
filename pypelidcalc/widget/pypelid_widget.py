@@ -131,9 +131,24 @@ class PypelidWidget(object):
                     wavelength=consts.line_list[line],
                     flux=signal * scale,
                     variance=signal * scale**2,
-                    background=det_bg * scale**2
+                    background=det_bg * scale**2,
+                    rest_frame=1
                 )
-                gal.compute_obs_wavelengths(gal.z)
+
+            # add a line at the center of the bandpass (observed frame)
+            scale = phot.flux_to_photon(1, O.collecting_area, O.lambda_ref)
+            scale *= exp_time * nexp
+            scale *= O.transmission(np.array([O.lambda_ref]), 1)[0]
+            scale = 1./scale
+            gal.append_line(
+                wavelength=O.lambda_ref,
+                flux=0,
+                variance=0,
+                background=det_bg * scale**2,
+                rest_frame=0
+            )
+
+            gal.compute_obs_wavelengths(gal.z)
 
             if gal.line_count == 0:
                 continue
@@ -205,11 +220,14 @@ class PypelidWidget(object):
 
         dz = np.abs(zmeas - ztrue)
         sel = dz < ztol
-        z = np.mean(zmeas[sel])
-
-        dzobs = np.abs(zmeas - z)
-
-        dz68 = np.percentile(dzobs[sel], 68)
+        if np.sum(sel)>0:
+            z = np.mean(zmeas[sel])
+            dzobs = np.abs(zmeas - z)
+            dz68 = np.percentile(dzobs[sel], 68)
+        else:
+            z = -1
+            dzobs = -1
+            dz68 = -1
         self.widgets['zerr_68'].value = "%3.2e"%dz68
         self.widgets['zerr_sys'].value = "%g"%((ztrue-z)*np.sqrt(np.sum(sel))/dz68)
         self.widgets['zerr_cat'].value = "%f"%(1 - np.sum(sel) * 1. / len(zmeas))
