@@ -116,6 +116,10 @@ class PypelidWidget(object):
 
             for line, flux in emission_lines:
                 wavelength = (1 + gal.z) * consts.line_list[line]
+
+                if wavelength < O.lambda_start or wavelength > O.lambda_end:
+                    continue
+
                 signal = phot.flux_to_photon(flux, O.collecting_area, wavelength)
                 signal *= exp_time * nexp
                 signal *= O.transmission(np.array([wavelength]), 1)[0]
@@ -149,7 +153,6 @@ class PypelidWidget(object):
             )
 
             gal.compute_obs_wavelengths(gal.z)
-
             if gal.line_count == 0:
                 continue
 

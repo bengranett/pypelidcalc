@@ -199,11 +199,11 @@ class Instrument(object):
             display(fig)
 
 
-    def get_lambda_range(self, key):
+    def get_lambda_range(self, key, thresh=2):
         """"""
         path = os.path.join(TRANSMISSION_DIR, self.widgets[key].value)
         x, y = np.loadtxt(path , unpack=True)
-        sel = y > (y.max()/10.)
+        sel = y > (y.max()*1./thresh)
         x = x[sel]
         return x.min(), x.max()
 
