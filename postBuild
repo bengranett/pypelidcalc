@@ -5,6 +5,6 @@ pip install appmode
 jupyter nbextension     enable --py --sys-prefix appmode
 jupyter serverextension enable --py --sys-prefix appmode
 
-pip install ipywidgets
+pip install ipywidgets plotly
 jupyter nbextension enable --py widgetsnbextension
 
