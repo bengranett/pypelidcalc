@@ -72,12 +72,12 @@ class PypelidWidget(object):
         self.plot = Output(layout={'width':'1000px'})
         self.running = False
 
-    def update(self, zgrid, zmeas, wavelength_scale, real_stack):
+    def update(self, zgrid, zmeas, wavelength_scale, mean_total, var_total, count):
         """ """
         zmeas = np.array(zmeas)
-        m = np.mean(real_stack, axis=0)
-        var = np.var(real_stack, axis=0)
 
+        m = mean_total * 1./ count
+        var = var_total * 1./ count - m**2
 
         ii = var > 0
         snr = np.sqrt(np.sum(m[ii]**2/var[ii]))
@@ -248,13 +248,16 @@ class PypelidWidget(object):
         self.widgets['progress'].min=0
         self.widgets['progress'].max=nloops
 
-        realizations = [[] for v in obs_list]
-        real_stack = []
 
         prob_z = []
         zmeas = []
 
         t0 = time.time()
+        t1 = time.time()
+
+        mean_total = 0
+        var_total = 0
+        count = 0
 
         for loop in range(nloops):
             if stop_event.is_set():
@@ -263,10 +266,12 @@ class PypelidWidget(object):
             for i, obs in enumerate(obs_list):
                 L, gal = obs
                 spectra = L.sample_spectrum(gal)
-                realizations[i].append(np.array(spectra[0]))
                 specset.append((wavelength_scales[i], np.array(spectra[0]), np.array(spectra[2])))
             flux_stack, var_stack = combine_spectra(wavelength_scale, specset)
-            real_stack.append(flux_stack)
+
+            mean_total += flux_stack
+            var_total += flux_stack**2
+            count += 1
 
             ii = var_stack>0
             invvar = np.zeros(len(var_stack), dtype='d')
@@ -274,20 +279,23 @@ class PypelidWidget(object):
 
             amp = zfitter.template_fit(flux_stack, invvar, 2)
             pz = np.array(zfitter.pz())
-            # prob_z.append(pz)
             zmeas.append(centroidz(zgrid, pz))
 
             if time.time()-t0 > 10:
-                self.update(zgrid, zmeas, wavelength_scale, real_stack)
+                self.update(zgrid, zmeas, wavelength_scale, mean_total, var_total, count)
                 t0 = time.time()
 
-            self.widgets['progress'].value = loop
-            self.widgets['progress'].description = "%i/%i"%(loop+1, nloops)
-            self.widgets['timer'].value = "elapsed time: %i s"%(time.time()-self._start_time)
+            if time.time()-t1 > 1:
+                self.widgets['progress'].value = loop
+                self.widgets['progress'].description = "%i/%i"%(loop+1, nloops)
+                self.widgets['timer'].value = "elapsed time: %i s"%(time.time()-self._start_time)
+                t1 = time.time()
 
+        self.widgets['progress'].description = "%i/%i"%(loop+1, nloops)
+        self.widgets['timer'].value = "elapsed time: %i s"%(time.time()-self._start_time)
 
         self.widgets['progress'].value = 0
-        self.update(zgrid, zmeas, wavelength_scale, real_stack)
+        self.update(zgrid, zmeas, wavelength_scale, mean_total, var_total, count)
         self.reset_button(self.widgets['button'])
 
 
