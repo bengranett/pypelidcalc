@@ -39,7 +39,7 @@ def get_transmission_files(dir=TRANSMISSION_DIR):
 class Instrument(object):
     """ """
     style = {'description_width': '150px'}
-    layout = {'width': '300px'}
+    layout = {'width': '250px'}
 
     widgets = {
         'config': Dropdown(options=configurations.keys(), description='Configurations:'),
@@ -53,8 +53,6 @@ class Instrument(object):
         'darkcurrent': BoundedFloatText(value=0.019, min=0, max=100, step=0.1, description='dark current (elec/s/pix)'),
         'transmission_red': Dropdown(options=get_transmission_files(), description='Red grism transmission'),
         'transmission_blue': Dropdown(options=get_transmission_files(), description='Blue grism transmission'),
-        'plot': Output(),
-        'psfplot': Output(),
         'radius1': Label(),
         'radius2': Label(),
 
@@ -74,10 +72,6 @@ class Instrument(object):
 
         self.update(**configurations[self.widgets['config'].value])
 
-        self.widgets['plot'].layout = {'width': '500px', 'height': '300px'}
-        self.widgets['psfplot'].layout = {'width': '500px', 'height': '300px'}
-
-
         self.widgets['config'].observe(self.change_config, names='value')
         self.widgets['transmission_red'].observe(self.plot_transmission, names='value')
         self.widgets['transmission_blue'].observe(self.plot_transmission, names='value')
@@ -91,6 +85,16 @@ class Instrument(object):
                 continue
             widget.observe(self.modify, names='value')
 
+        self.figs = [go.FigureWidget(), go.FigureWidget()]
+        self.figs[0].update_layout(xaxis_title='Wavelength (microns)',
+                          yaxis_title='Efficiency',
+                          width=500, height=200,
+                          margin=dict(l=0, r=0, t=0, b=0, pad=0), autosize=True)
+        self.figs[1].update_layout(xaxis_title='Radius (pixels)',
+                          yaxis_title='PSF', width=500, height=200,
+                          margin=dict(l=0, r=0, t=0, b=0, pad=0), autosize=True)
+
+
         title = HTML('<h2>Instrument<h2>')
         elements = []
         elements.append(self.widgets['config'])
@@ -100,8 +104,12 @@ class Instrument(object):
         elements += [HTML('<b>Detector</b>'), self.widgets['readnoise'], self.widgets['darkcurrent']]
         self.widget = HBox(
             [VBox(elements),
-            VBox([self.widgets['plot'], self.widgets['psfplot'], self.widgets['radius1'], self.widgets['radius2']])]
+            VBox(self.figs + [self.widgets['radius1'], self.widgets['radius2']])]
         )
+
+        self.plot_transmission()
+        self.plot_psf()
+
 
     def update(self, **kwargs):
         """ """
@@ -128,41 +136,32 @@ class Instrument(object):
         if change:
             self.widgets['config'].value = 'custom'
 
-        colors = {'transmission_red':'r', 'transmission_blue': 'b'}
+        colors = {'transmission_red':'red', 'transmission_blue': 'blue'}
 
-        with self.widgets['plot']:
+        fig = self.figs[0]
+        fig.data = []
 
-            clear_output(wait=True)
+        for key in ['transmission_red', 'transmission_blue']:
 
-            fig = go.Figure()
+            if not self.widgets[key].value:
+                continue
 
-            for key in ['transmission_red', 'transmission_blue']:
+            if self.widgets[key].value == 'none':
+                continue
 
-                if not self.widgets[key].value:
-                    continue
+            path = os.path.join(TRANSMISSION_DIR, self.widgets[key].value)
+            if not os.path.exists(path):
+                continue
+            x, y = np.loadtxt(path, unpack=True)
 
-                if self.widgets[key].value == 'none':
-                    continue
+            sel, = np.where(y > (y.max()/10.))
+            a = max(0, sel[0] - 10)
+            b = min(len(x), sel[-1] + 10)
+            x = x[a:b]
+            y = y[a:b]
 
-                path = os.path.join(TRANSMISSION_DIR, self.widgets[key].value)
-                if not os.path.exists(path):
-                    continue
-                x, y = np.loadtxt(path, unpack=True)
+            fig.add_scatter(x=x/1e4, y=y, name=self.widgets[key].value, line_color=colors[key])
 
-                sel, = np.where(y > (y.max()/10.))
-                a = max(0, sel[0] - 10)
-                b = min(len(x), sel[-1] + 10)
-                x = x[a:b]
-                y = y[a:b]
-
-                fig.add_trace(go.Scatter(x=x/1e4, y=y, name=self.widgets[key].value))
-
-            fig.update_layout(xaxis_title='Wavelength (micron)',
-                              yaxis_title='Efficiency %',
-                              width=500, height=300,
-                              margin=dict(l=0, r=0, t=0, b=80, pad=0),autosize=False)
-
-            display(fig)
 
     def plot_psf(self, change=None):
         """ """
@@ -180,23 +179,15 @@ class Instrument(object):
         self.widgets['radius1'].value = "PSF 50%%-radius: %3.2f pixels"%r1
         self.widgets['radius2'].value = "PSF 80%%-radius: %3.2f pixels"%r2
 
-        with self.widgets['psfplot']:
 
-            clear_output(wait=True)
+        x = np.linspace(0,np.ceil(PSF.radius(0.95)),100)
+        y = np.array(PSF.prof(x))
+        yinteg = np.array(PSF.evaluate(x))
 
-            x = np.linspace(0,np.ceil(PSF.radius(0.95)),100)
-            y = np.array(PSF.prof(x))
-            yinteg = np.array(PSF.evaluate(x))
-
-            fig = go.Figure(data=go.Scatter(x=x, y=y/y.max(), name='Profile'))
-            fig.add_trace(go.Scatter(x=x, y=yinteg, name='Integrated'))
-
-
-            fig.update_layout(xaxis_title='Radius (pixel)',
-                              yaxis_title='PSF', width=500, height=300,
-                              margin=dict(l=0, r=0, t=0, b=80, pad=0),autosize=False)
-
-            display(fig)
+        fig = self.figs[1]
+        fig.data = []
+        fig.add_scatter(x=x, y=y/y.max(), name='Profile')
+        fig.add_scatter(x=x, y=yinteg, name='Integrated')
 
 
     def get_lambda_range(self, key, thresh=2):

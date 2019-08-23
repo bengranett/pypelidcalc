@@ -21,7 +21,6 @@ class Analysis(object):
     layout = {'width': '400px'}
 
     widgets = {
-        'nloops': BoundedIntText(value=100, min=1, max=1e6, step=1, description='Number of realizations'),
         'zmeas_template_file': Dropdown(options=get_template_files(), description='Spec templates file'),
         'extraction_sigma': BoundedFloatText(value=2, min=0, max=100, step=0.1, description='Extraction kernel width (pixels)'),
         'zmin':  BoundedFloatText(value=0, min=0, max=10, step=0.1, description='Redshift grid min'),
@@ -33,7 +32,7 @@ class Analysis(object):
         'output': Output(layout={'width':'800px'}),
     }
 
-    params = ('nloops', 'zmeas_template_file', 'extraction_sigma', 'zmin', 'zmax', 'zstep', 'ztol', 'templ_res')
+    params = ('zmeas_template_file', 'extraction_sigma', 'zmin', 'zmax', 'zstep', 'ztol', 'templ_res')
 
     def __init__(self):
         """ """
@@ -45,7 +44,6 @@ class Analysis(object):
         self.widgets['zmeas_template_file'].observe(self.show_template_table, names='value')
 
         elements = []
-        elements += [HTML('<b>Statistics</b>'), self.widgets['nloops']]
         elements += [HTML('<b>Extraction</b>'), self.widgets['extraction_sigma']]
         elements += [HTML('<b>Redshift measurement</b>'), self.widgets['zmeas_template_file'],
                     self.widgets['zmin'], self.widgets['zmax'], self.widgets['zstep'], self.widgets['templ_res'], self.widgets['ztol']]

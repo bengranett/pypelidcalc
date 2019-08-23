@@ -1,9 +1,10 @@
 import time
+import threading
 
 import numpy as np
 from templatefit import template_fit
 from IPython.display import display
-from ipywidgets import HTML, HBox, VBox, Button, Tab, Output, IntProgress, Label
+from ipywidgets import HTML, HBox, VBox, Button, Tab, Output, IntProgress, Label, BoundedIntText
 from scipy import interpolate
 
 import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget, config_widget
@@ -46,6 +47,12 @@ class PypelidWidget(object):
     """ """
 
     widgets = {
+        'nreal': BoundedIntText(value=1000, min=0, max=100000, step=100, description='Number of realizations:',
+            layout={'width': '250px'},
+            style={'description_width': '150px',}),
+        'button': Button(description="Run", icon='play', layout={'border':'solid 1px black', 'width': '100px'}),
+        'progress': IntProgress(bar_style='success'),
+        'timer': Label(),
         'snrbox': Label(layout={'border':'solid 1px green', 'width': '100px'}),
         'zmeas': Label(layout={'border':'solid 1px green', 'width': '100px'}),
         'zerr': Label(layout={'border':'solid 1px green', 'width': '100px'}),
@@ -62,12 +69,58 @@ class PypelidWidget(object):
         self.analysis = analysis_widget.Analysis()
         self.survey = survey_widget.Survey()
         self.config = config_widget.Config((self.galaxy, self.foreground, self.instrument, self.survey, self.analysis))
-        self.progress = IntProgress(bar_style='success')
         self.plot = Output(layout={'width':'1000px'})
+        self.running = False
 
-    def run(self, button):
+    def update(self, zgrid, zmeas, wavelength_scale, real_stack):
         """ """
-        button.disabled = True
+        zmeas = np.array(zmeas)
+        m = np.mean(real_stack, axis=0)
+        var = np.var(real_stack, axis=0)
+
+
+        ii = var > 0
+        snr = np.sqrt(np.sum(m[ii]**2/var[ii]))
+        self.widgets['snrbox'].value = "%3.2f"%snr
+
+        ztrue = self.galaxy.widgets['redshift'].value
+
+        ztol = self.analysis.widgets['ztol'].value
+
+        dz = np.abs(zmeas - ztrue)
+        sel = dz < ztol
+        if np.sum(sel) > 0:
+            z = np.mean(zmeas[sel])
+            dzobs = np.abs(zmeas - z)
+            dz68 = np.percentile(dzobs[sel], 68)
+            self.widgets['zerr_68'].value = "%3.2e"%dz68
+            if dz68 > 0:
+                self.widgets['zerr_sys'].value = "%g"%((ztrue-z)*np.sqrt(np.sum(sel))/dz68)
+            self.widgets['zerr_cat'].value = "%f"%(1 - np.sum(sel) * 1. / len(zmeas))
+
+            self.widgets['zmeas'].value = "%g"%z
+            self.widgets['zerr'].value = "%3.2e"%(ztrue - z)
+
+        h, e = np.histogram(zmeas, bins=zgrid)
+        h = h * 1./ np.sum(h)
+        x = (e[1:]+e[:-1])/2.
+        a = np.where(h>0)[0][0]-1
+        b = np.where(h>0)[0][-1]+1
+        x = x[a:b+1]
+        h = h[a:b+1]
+
+        self.figs['spec'].data[0]['x'] = wavelength_scale/1e4
+        self.figs['spec'].data[0]['y'] = m
+        self.figs['spec'].data[1]['x'] = wavelength_scale/1e4
+        self.figs['spec'].data[1]['y'] = var**0.5
+
+        self.figs['pdf'].data[0]['x'] = x
+        self.figs['pdf'].data[0]['y'] = h
+
+
+    def run(self, stop_event):
+        """ """
+        self._start_time = time.time()
 
         emission_lines = [
             ('Ha', self.galaxy.widgets['flux_ha'].value * 1e-16),
@@ -86,6 +139,22 @@ class PypelidWidget(object):
         nexp_list = self.survey.widgets['nexp_red'].value, self.survey.widgets['nexp_blue'].value
         exp_time = self.survey.widgets['exp_time'].value
 
+        ztol = self.analysis.widgets['ztol'].value
+
+        self.figs['pdf'].update_layout(
+            shapes=[go.layout.Shape(
+                   type="rect",
+                   xref="x",
+                    yref="paper",
+                    x0=self.galaxy.widgets['redshift'].value-ztol,
+                    y0=0,
+                    x1=self.galaxy.widgets['redshift'].value+ztol,
+                    y1=1,
+                    fillcolor="LightSalmon",
+                    opacity=0.5,
+                    layer="below",
+                    line_width=0,
+        ),])
 
 
 
@@ -175,9 +244,9 @@ class PypelidWidget(object):
                     template_file=self.analysis.template_path)
 
 
-        nloops = self.analysis.widgets['nloops'].value
-        self.progress.min=0
-        self.progress.max=nloops
+        nloops = self.widgets['nreal'].value
+        self.widgets['progress'].min=0
+        self.widgets['progress'].max=nloops
 
         realizations = [[] for v in obs_list]
         real_stack = []
@@ -185,7 +254,11 @@ class PypelidWidget(object):
         prob_z = []
         zmeas = []
 
+        t0 = time.time()
+
         for loop in range(nloops):
+            if stop_event.is_set():
+                break
             specset = []
             for i, obs in enumerate(obs_list):
                 L, gal = obs
@@ -201,91 +274,46 @@ class PypelidWidget(object):
 
             amp = zfitter.template_fit(flux_stack, invvar, 2)
             pz = np.array(zfitter.pz())
-            prob_z.append(pz)
+            # prob_z.append(pz)
             zmeas.append(centroidz(zgrid, pz))
 
-            self.progress.value = loop
+            if time.time()-t0 > 10:
+                self.update(zgrid, zmeas, wavelength_scale, real_stack)
+                t0 = time.time()
 
-        self.progress.value = 0
-
-        zmeas = np.array(zmeas)
-        m = np.mean(real_stack, axis=0)
-        var = np.var(real_stack, axis=0)
+            self.widgets['progress'].value = loop
+            self.widgets['progress'].description = "%i/%i"%(loop+1, nloops)
+            self.widgets['timer'].value = "elapsed time: %i s"%(time.time()-self._start_time)
 
 
-        ii = var > 0
-        snr = np.sqrt(np.sum(m[ii]**2/var[ii]))
-        self.widgets['snrbox'].value = "%3.2f"%snr
+        self.widgets['progress'].value = 0
+        self.update(zgrid, zmeas, wavelength_scale, real_stack)
+        self.reset_button(self.widgets['button'])
 
-        ztrue = self.galaxy.widgets['redshift'].value
 
-        ztol = self.analysis.widgets['ztol'].value
-
-        dz = np.abs(zmeas - ztrue)
-        sel = dz < ztol
-        if np.sum(sel)>0:
-            z = np.mean(zmeas[sel])
-            dzobs = np.abs(zmeas - z)
-            dz68 = np.percentile(dzobs[sel], 68)
+    def click_start(self, button):
+        if not self.running:
+            self.running = True
+            button.description = "Stop"
+            button.icon = "stop"
+            button.style.button_color = 'orange'
+            self.stop_event = threading.Event()
+            thread = threading.Thread(target=self.run, args=(self.stop_event,))
+            thread.start()
         else:
-            z = -1
-            dzobs = -1
-            dz68 = -1
-        self.widgets['zerr_68'].value = "%3.2e"%dz68
-        self.widgets['zerr_sys'].value = "%g"%((ztrue-z)*np.sqrt(np.sum(sel))/dz68)
-        self.widgets['zerr_cat'].value = "%f"%(1 - np.sum(sel) * 1. / len(zmeas))
+            self.stop_event.set()
+            self.reset_button(button)
 
-        self.widgets['zmeas'].value = "%g"%z
-        self.widgets['zerr'].value = "%3.2e"%(ztrue - z)
-
-        h, e = np.histogram(zmeas, bins=zgrid)
-        h = h * 1./ np.sum(h)
-        x = (e[1:]+e[:-1])/2.
-
-
-        with self.plot:
-            self.plot.clear_output()
-
-            fig = go.Figure(data=go.Scatter(x=wavelength_scale/1e4, y=m, name='Signal'))
-            fig.add_trace(go.Scatter(x=wavelength_scale/1e4, y=var**0.5, name='Noise'))
-            fig.update_layout(xaxis_title='Wavelength (micron)',
-                              yaxis_title='Flux density',margin=dict(l=0, r=0, t=0, b=80, pad=0))
-
-            display(fig)
-
-            fig2 = go.Figure(data=go.Scatter(x=x, y=h, name='Measured redshift'))
-            # fig2.add_trace(go.Scatter(x=zgrid, y=np.mean(prob_z, axis=0), name='p(z)'))
-            fig2.update_layout(xaxis_title='Redshift',
-                              yaxis_title='Distribution',margin=dict(l=0, r=0, t=0, b=80, pad=0))
-
-            fig2.update_layout(
-                shapes=[go.layout.Shape(
-                       type="rect",
-                       xref="x",
-                        yref="paper",
-                        x0=self.galaxy.widgets['redshift'].value-ztol,
-                        y0=0,
-                        x1=self.galaxy.widgets['redshift'].value+ztol,
-                        y1=1,
-                        fillcolor="LightSalmon",
-                        opacity=0.5,
-                        layer="below",
-                        line_width=0,
-                    ),])
-
-            display(fig2)
-
-
-
-
-        button.disabled = False
+    def reset_button(self, button):
+        """ """
+        self.running = False
+        button.description = "Run"
+        button.icon = "play"
+        button.style.button_color = 'lightgreen'
 
     def tab_event(self, change):
         if change['type'] == 'change' and change['name'] == 'selected_index':
-            if change['new'] == 2:
-                self.instrument.plot_transmission()
-                self.instrument.plot_psf()
-            elif change['new'] == 5:
+            if change['new'] == 5:
                 self.config.update()
 
 
@@ -305,11 +333,11 @@ class PypelidWidget(object):
 
         display(tab)
 
-        button = Button(description="Compute", icon='play')
+        self.reset_button(self.widgets['button'])
 
-        button.on_click(self.run)
+        self.widgets['button'].on_click(self.click_start)
 
-        elements =  [HBox([button, self.progress])]
+        elements =  [HBox([self.widgets['nreal'], self.widgets['button'], self.widgets['progress'], self.widgets['timer']])]
         elements += [HTML('<b>Redshift measurement statistics</b>')]
         elements += [HBox([HTML('<b>SNR:</b>'), self.widgets['snrbox']])]
         horiz = [HTML('<b>Mean z:</b>'), self.widgets['zmeas']]
@@ -323,3 +351,22 @@ class PypelidWidget(object):
         display(VBox(elements))
 
         display(self.plot)
+
+        self.figs = {}
+        with self.plot:
+            self.figs['spec'] = go.FigureWidget()
+            self.figs['pdf'] = go.FigureWidget()
+            self.figs['spec'].update_layout(xaxis_title='Wavelength (micron)',
+                              height=200,
+                              yaxis_title='Flux density',margin=dict(l=0, r=0, t=0, b=0, pad=0))
+
+            self.figs['pdf'].update_layout(xaxis_title='Redshift', height=200,
+                              yaxis_title='Distribution',margin=dict(l=0, r=0, t=0, b=0, pad=0))
+
+            self.figs['spec'].add_scatter(x=[], y=[], name='Signal')
+            self.figs['spec'].add_scatter(x=[], y=[], name='Noise')
+            self.figs['pdf'].add_scatter(x=[], y=[], name='Measured redshift')
+
+            display(self.figs['spec'])
+            display(self.figs['pdf'])
+
