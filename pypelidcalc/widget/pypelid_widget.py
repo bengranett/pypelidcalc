@@ -69,8 +69,159 @@ class PypelidWidget(object):
         self.analysis = analysis_widget.Analysis()
         self.survey = survey_widget.Survey()
         self.config = config_widget.Config((self.galaxy, self.foreground, self.instrument, self.survey, self.analysis))
-        self.plot = Output(layout={'width':'1000px'})
         self.running = False
+
+        self.render_lock = threading.Lock()
+
+    def render(self, change=None):
+        """ """
+        if not self.render_lock.acquire(False):
+            # print "locked"
+            return
+        render_thread = threading.Thread(target=self._render, args=(self.render_lock,))
+        render_thread.start()
+
+    def _render(self, lock):
+        """ """
+        # print "start render"
+        wavelength_scale, flux, var = self.spec(noise=False)
+        wavelength_scale_, flux_n, var_n = self.spec(noise=True)
+
+        self.figs['spec'].data[2]['x'] = wavelength_scale/1e4
+        self.figs['spec'].data[2]['y'] = flux
+
+        self.figs['spec'].data[1]['x'] = wavelength_scale/1e4
+        self.figs['spec'].data[1]['y'] = flux_n
+
+        self.figs['spec'].data[0]['x'] = wavelength_scale/1e4
+        self.figs['spec'].data[0]['y'] = var**0.5
+
+        ii = var > 0
+        snr = np.sqrt(np.sum(flux[ii]**2/var[ii]))
+        self.widgets['snrbox'].value = "%3.2f"%snr
+
+        self.render_lock.release()
+
+
+
+    def spec(self, noise=True):
+        emission_lines = [
+            ('Ha', self.galaxy.widgets['flux_ha'].value * 1e-16),
+            ('N2a', self.galaxy.widgets['flux_n2a'].value * 1e-16),
+            ('N2b', self.galaxy.widgets['flux_n2b'].value * 1e-16),
+            ('S2a', self.galaxy.widgets['flux_s2a'].value * 1e-16),
+            ('S2b', self.galaxy.widgets['flux_s2b'].value * 1e-16),
+            ('O3a', self.galaxy.widgets['flux_o3a'].value * 1e-16),
+            ('O3b', self.galaxy.widgets['flux_o3b'].value * 1e-16),
+            ('Hb', self.galaxy.widgets['flux_hb'].value * 1e-16),
+            ('O2', self.galaxy.widgets['flux_o2'].value * 1e-16),
+
+        ]
+
+
+        nexp_list = self.survey.widgets['nexp_red'].value, self.survey.widgets['nexp_blue'].value
+        exp_time = self.survey.widgets['exp_time'].value
+
+        ztol = self.analysis.widgets['ztol'].value
+
+        config_list = self.instrument.get_config_list()
+        obs_list = []
+        for i, config in enumerate(config_list):
+
+            nexp = nexp_list[i]
+            if nexp == 0:
+                continue
+
+            O = optics.Optics(config, seed=time.time()*1e6)
+
+            L = linesim.LineSimulator(O, extraction_sigma=self.analysis.widgets['extraction_sigma'].value)
+
+            det_bg = nexp * exp_time * config['darkcurrent'] + config['readnoise']**2
+
+            det_bg += nexp * exp_time * self.foreground.widgets['foreground'].value
+
+            gal = galaxy.Galaxy(
+                z=self.galaxy.widgets['redshift'].value,
+                bulge_scale=self.galaxy.widgets['bulge_scale'].value,
+                disk_scale=self.galaxy.widgets['disk_scale'].value,
+                bulge_fraction=self.galaxy.widgets['bulge_fraction'].value,
+                axis_ratio=self.galaxy.widgets['axis_ratio'].value,
+                velocity_disp=self.galaxy.widgets['velocity_dispersion'].value,
+            )
+
+            for line, flux in emission_lines:
+                wavelength = (1 + gal.z) * consts.line_list[line]
+
+                if wavelength < O.lambda_start or wavelength > O.lambda_end:
+                    continue
+
+                signal = phot.flux_to_photon(flux, O.collecting_area, wavelength)
+                signal *= exp_time * nexp
+                signal *= O.transmission(np.array([wavelength]), 1)[0]
+
+                if signal <= 0:
+                    continue
+
+                line_variance = signal
+
+                scale = flux / signal
+
+                if noise is False:
+                    v = (signal * scale)**2/1e7
+                else:
+                    v = signal * scale**2
+
+                gal.append_line(
+                    wavelength=consts.line_list[line],
+                    flux=signal * scale,
+                    variance=v,
+                    background=det_bg * scale**2,
+                    rest_frame=1
+                )
+
+            # add a line at the center of the bandpass (observed frame)
+            scale = phot.flux_to_photon(1, O.collecting_area, O.lambda_ref)
+            scale *= exp_time * nexp
+            scale *= O.transmission(np.array([O.lambda_ref]), 1)[0]
+            scale = 1./scale
+            gal.append_line(
+                wavelength=O.lambda_ref,
+                flux=0,
+                variance=0,
+                background=det_bg * scale**2,
+                rest_frame=0
+            )
+
+            gal.compute_obs_wavelengths(gal.z)
+            if gal.line_count == 0:
+                continue
+
+            obs_list.append((L, gal))
+
+        wavelength_scales = []
+        dispersion = []
+        for L, gal in obs_list:
+            x = np.arange(L.npix) * L.dispersion + L.lambda_min
+            wavelength_scales.append(x)
+            dispersion.append(L.dispersion)
+        dispersion = np.min(dispersion)
+        wavelength_min = np.min(np.concatenate(wavelength_scales))
+        wavelength_max = np.max(np.concatenate(wavelength_scales))
+        wavelength_scale = np.arange(wavelength_min, wavelength_max, dispersion)
+
+        specset = []
+        for i, obs in enumerate(obs_list):
+            L, gal = obs
+            spectra = L.sample_spectrum(gal)
+            if noise:
+                s = spectra[0]
+            else:
+                s = spectra[1]
+            specset.append((wavelength_scales[i], np.array(s), np.array(spectra[2])))
+        flux_stack, var_stack = combine_spectra(wavelength_scale, specset)
+
+        return wavelength_scale, flux_stack, var_stack
+
 
     def update(self, zgrid, zmeas, wavelength_scale, mean_total, var_total, count):
         """ """
@@ -336,45 +487,54 @@ class PypelidWidget(object):
         tab.set_title(3, "Survey")
         tab.set_title(4, "Analysis")
         tab.set_title(5, "Config")
+        tab.layout={'height': '500px'}
 
         tab.observe(self.tab_event)
 
         display(tab)
 
-        self.reset_button(self.widgets['button'])
-
-        self.widgets['button'].on_click(self.click_start)
-
-        elements =  [HBox([self.widgets['nreal'], self.widgets['button'], self.widgets['progress'], self.widgets['timer']])]
-        elements += [HTML('<b>Redshift measurement statistics</b>')]
-        elements += [HBox([HTML('<b>SNR:</b>'), self.widgets['snrbox']])]
-        horiz = [HTML('<b>Mean z:</b>'), self.widgets['zmeas']]
-        horiz += [HTML('<b>Error:</b>'), self.widgets['zerr']]
-        horiz += [HTML('<b>68% limit:</b>'), self.widgets['zerr_68']]
-        horiz += [HTML('<b>Fractional systematic:</b>'), self.widgets['zerr_sys']]
-        horiz += [HTML('<b>Outlier rate:</b>'), self.widgets['zerr_cat']]
-
-        elements += [HBox(horiz)]
-
-        display(VBox(elements))
-
-        display(self.plot)
+        for widgets in [self.galaxy.widget, self.foreground.widget, self.instrument.widget, self.survey.widget, self.config.widget]:
+            for key, w in widgets.widgets.items():
+                w.observe(self.render, names='value')
 
         self.figs = {}
-        with self.plot:
-            self.figs['spec'] = go.FigureWidget()
-            self.figs['pdf'] = go.FigureWidget()
-            self.figs['spec'].update_layout(xaxis_title='Wavelength (micron)',
-                              height=200,
-                              yaxis_title='Flux density',margin=dict(l=0, r=0, t=0, b=0, pad=0))
+        self.figs['spec'] = go.FigureWidget()
+        self.figs['spec'].update_layout(xaxis_title=u'Wavelength (\u03BCm)',
+                                  height=200,
+                                  yaxis_title='Flux density',
+                                  margin=dict(l=0, r=0, t=0, b=0, pad=0))
+        self.figs['spec'].add_scatter(x=[], y=[], name='Noise', line_color='grey')
+        self.figs['spec'].add_scatter(x=[], y=[], name='Realization', line_color='orange')
+        self.figs['spec'].add_scatter(x=[], y=[], name='Signal', line_color='black')
 
-            self.figs['pdf'].update_layout(xaxis_title='Redshift', height=200,
-                              yaxis_title='Distribution',margin=dict(l=0, r=0, t=0, b=0, pad=0))
+        render_button = Button(description="Update realization", layout={'border':'solid 1px black', 'width': '100px'})
+        render_button.on_click(self.render)
+        display(HBox([HTML('<b>SNR:</b>'), self.widgets['snrbox'], render_button]))
+        display(self.figs['spec'])
+        self.render()
 
-            self.figs['spec'].add_scatter(x=[], y=[], name='Signal')
-            self.figs['spec'].add_scatter(x=[], y=[], name='Noise')
-            self.figs['pdf'].add_scatter(x=[], y=[], name='Measured redshift')
+        # self.reset_button(self.widgets['button'])
 
-            display(self.figs['spec'])
-            display(self.figs['pdf'])
+        # self.widgets['button'].on_click(self.click_start)
+
+        # elements =  [HBox([self.widgets['nreal'], self.widgets['button'], self.widgets['progress'], self.widgets['timer']])]
+        # elements += [HTML('<b>Redshift measurement statistics</b>')]
+        # elements += [HBox([HTML('<b>SNR:</b>'), self.widgets['snrbox']])]
+        # horiz = [HTML('<b>Mean z:</b>'), self.widgets['zmeas']]
+        # horiz += [HTML('<b>Error:</b>'), self.widgets['zerr']]
+        # horiz += [HTML('<b>68% limit:</b>'), self.widgets['zerr_68']]
+        # horiz += [HTML('<b>Fractional systematic:</b>'), self.widgets['zerr_sys']]
+        # horiz += [HTML('<b>Outlier rate:</b>'), self.widgets['zerr_cat']]
+
+        # elements += [HBox(horiz)]
+
+        # display(VBox(elements))
+
+        # self.figs['pdf'] = go.FigureWidget()
+        # self.figs['pdf'].update_layout(xaxis_title='Redshift', height=200,
+        #                       yaxis_title='Distribution',margin=dict(l=0, r=0, t=0, b=0, pad=0))
+
+        # self.figs['pdf'].add_scatter(x=[], y=[], name='Measured redshift')
+
+        # display(self.figs['pdf'])
 
