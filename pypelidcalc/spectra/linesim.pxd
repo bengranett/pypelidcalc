@@ -29,6 +29,7 @@ cdef class LineSimulator(object):
     cdef double photon_shoot_limit, c_kms
     cdef public int npix, extraction_window, norm_window
     cdef public double extraction_norm
+    cdef int isotropize
     cdef double [:] binsx
     cdef double [:] binsy
     cdef public double [:] extraction_weights

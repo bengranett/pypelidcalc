@@ -251,7 +251,7 @@ cdef class BaseProfile:
 			logging.warning("Projected light radius is only calibrated at the half-light point.  You asked for the radius containing %f.", frac)
 		return self.radius(scale, axis_ratio, frac) * consts.PROJECTED_HALF_LIGHT_RADIUS
 
-	cpdef double[:,:] sample(self, double scale=1, double axis_ratio=1, double pa=0, int n=1000000):
+	cpdef double[:,:] sample(self, double scale=1, double axis_ratio=1, double pa=0, int n=1000000, int isotropize=0):
 		""" Draw samples x,y from the galaxy image.
 
 		Parameters
@@ -277,11 +277,14 @@ cdef class BaseProfile:
 			return np.array(x)
 
 		rotate = 0
-		if pa != 0:
+		if pa != 0 and axis_ratio < 1:
 			rotate = 1
 			theta0 = math.M_PI/180 * pa
 			costh = math.cos(theta0)
 			sinth = math.sin(theta0)
+
+		if isotropize and axis_ratio < 1:
+			rotate = 1
 
 		root_axis_ratio = math.sqrt(axis_ratio)
 
@@ -296,6 +299,10 @@ cdef class BaseProfile:
 				x[i, 1] = r / root_axis_ratio * math.sin(theta)
 
 				if rotate:
+					if isotropize:
+						theta = gsl.gsl_rng_uniform(self.rng) * 2 * math.M_PI
+						costh = math.cos(theta)
+						sinth = math.sin(theta)
 					x_temp = x[i,0] * costh + x[i,1] * sinth
 					x[i,1] = - x[i,0] * sinth + x[i,1] * costh
 					x[i,0] = x_temp

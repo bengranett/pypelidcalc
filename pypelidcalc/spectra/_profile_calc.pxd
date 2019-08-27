@@ -42,7 +42,7 @@ cdef class BaseProfile:
 	cdef double profile(self, double r, double scale) nogil
 	cpdef double radius(self, double scale, double axis_ratio=*, double frac=*)
 	cpdef double projected_radius(self, double scale, double axis_ratio=*, double frac=*)
-	cpdef double [:,:] sample(self, double scale=*, double axis_ratio=*, double pa=*, int n=*)
+	cpdef double [:,:] sample(self, double scale=*, double axis_ratio=*, double pa=*, int n=*, int isotropize=*)
 
 
 cdef class _Disk(BaseProfile):

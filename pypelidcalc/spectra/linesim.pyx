@@ -38,6 +38,7 @@ cdef class LineSimulator:
 				extraction_sigma=2.0,
 				extraction_weights=True,
 				photon_shoot_limit=100000,
+				isotropize=True,
 				seed=None):
 		""" """
 		cdef int i
@@ -52,6 +53,8 @@ cdef class LineSimulator:
 		self.extraction_window = <int> math.round(extraction_window * extraction_sigma)
 
 		self.photon_shoot_limit = photon_shoot_limit
+
+		self.isotropize = int(isotropize)
 
 		self.binsx = np.arange(self.npix + 1) - 0.5
 		self.binsy = np.arange(-self.extraction_window, self.extraction_window + 2) - 0.5
@@ -178,6 +181,7 @@ cdef class LineSimulator:
 		cdef double [:,:] psf_xy
 		cdef double [:] binsx = self.binsx
 		cdef double plate_scale = self.plate_scale
+		cdef int isotropize = self.isotropize
 		cdef galaxy_struct * gal = g.gal
 
 		if n <= 0:
@@ -190,7 +194,7 @@ cdef class LineSimulator:
 		dx_vel = 0
 
 		# logging.info("n %g platescale %g", n, plate_scale)
-		xy = g.sample(n, plate_scale)
+		xy = g.sample(n, plate_scale, isotropize)
 
 		psf_xy = self.PSF.sample(n)
 

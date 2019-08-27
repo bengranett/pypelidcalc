@@ -183,7 +183,7 @@ cpdef double[:] bulgy_disk_radius(
     return np.array(x)
 
 
-cpdef double [:,:] bulgy_disk_sample(double bulge_scale, double disk_scale, double bulge_fraction, double axis_ratio, double pa, int n):
+cpdef double [:,:] bulgy_disk_sample(double bulge_scale, double disk_scale, double bulge_fraction, double axis_ratio, double pa, int n, int isotropize):
     """ """
     cdef int nbulge, ndisk
     cdef double [:,:] x
@@ -201,10 +201,10 @@ cpdef double [:,:] bulgy_disk_sample(double bulge_scale, double disk_scale, doub
 
     if nbulge > 0:
         bulge = pc.Bulge()
-        x[:nbulge] = bulge.sample(bulge_scale, axis_ratio, pa, nbulge)
+        x[:nbulge] = bulge.sample(bulge_scale, axis_ratio, pa, nbulge, isotropize)
     if ndisk > 0:
         disk = pc.Disk()
-        x[nbulge:] = disk.sample(disk_scale, axis_ratio, pa, ndisk)
+        x[nbulge:] = disk.sample(disk_scale, axis_ratio, pa, ndisk, isotropize)
 
     return np.array(x)
 

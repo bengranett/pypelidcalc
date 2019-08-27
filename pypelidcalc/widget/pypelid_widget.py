@@ -101,7 +101,7 @@ class PypelidWidget(object):
 
 
         L, gal = obs_list[0]
-        x, y = np.transpose(gal.sample(int(1e6), L.plate_scale))
+        x, y = np.transpose(gal.sample(int(1e6), L.plate_scale, self.galaxy.widgets['iso'].value))
 
         dx, dy = np.transpose(L.PSF.sample(len(x)))
 
@@ -157,7 +157,7 @@ class PypelidWidget(object):
 
             O = optics.Optics(config, seed=time.time()*1e6)
 
-            L = linesim.LineSimulator(O, extraction_sigma=self.analysis.widgets['extraction_sigma'].value)
+            L = linesim.LineSimulator(O, extraction_sigma=self.analysis.widgets['extraction_sigma'].value, isotropize=self.galaxy.widgets['iso'].value)
 
             det_bg = nexp * exp_time * config['darkcurrent'] + config['readnoise']**2
 
@@ -343,7 +343,7 @@ class PypelidWidget(object):
 
             O = optics.Optics(config, seed=time.time()*1e6)
 
-            L = linesim.LineSimulator(O, extraction_sigma=self.analysis.widgets['extraction_sigma'].value)
+            L = linesim.LineSimulator(O, extraction_sigma=self.analysis.widgets['extraction_sigma'].value, isotropize=self.galaxy.widgets['iso'].value)
 
             det_bg = nexp * exp_time * config['darkcurrent'] + config['readnoise']**2
 

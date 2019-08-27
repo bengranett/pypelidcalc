@@ -1,3 +1,3 @@
 
 
-cpdef double [:,:] bulgy_disk_sample(double bulge_scale, double disk_scale, double bulge_fraction, double axis_ratio, double pa, int n)
+cpdef double [:,:] bulgy_disk_sample(double bulge_scale, double disk_scale, double bulge_fraction, double axis_ratio, double pa, int n, int isotropize)

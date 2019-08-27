@@ -36,5 +36,5 @@ cdef class Galaxy:
     cdef galaxy_struct * gal
 
     cdef galaxy_struct *  get_struct(self)
-    cpdef double [:,:] sample(self, int n, double plate_scale)
+    cpdef double [:,:] sample(self, int n, double plate_scale, int isotropize)
     cpdef void compute_obs_wavelengths(self, z)
