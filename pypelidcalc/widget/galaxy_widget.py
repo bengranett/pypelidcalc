@@ -14,7 +14,8 @@ class Galaxy(object):
         'bulge_scale': BoundedFloatText(value=0.5, min=0, max=10, step=0.1, description="Bulge scale (arcsec)"),
         'disk_scale': BoundedFloatText(value=0.5, min=0, max=10, step=0.1, description="Disk scale (arcsec)"),
         'bulge_fraction': BoundedFloatText(value=1, min=0, max=1, step=0.1, description="Bulge fraction"),
-        'axis_ratio': BoundedFloatText(value=1, min=0, max=1, step=0.1, description="Axis ratio"),
+        'axis_ratio': BoundedFloatText(value=1, min=0.01, max=1, step=0.1, description="Axis ratio"),
+        'pa': BoundedFloatText(value=0, min=-180, max=180, step=10, description="Position angle"),
         'half_light_radius': HBox([Label("Half-light radius (arcsec): "), Label(value="0")]),
         'velocity_dispersion': BoundedFloatText(value=0, min=0, max=1000, step=0.1, description="Velocity dispersion (km/s)"),
         'flux_ha': BoundedFloatText(value=2, min=0, max=1000, step=0.1, description='Flux H$\\alpha$ 6565 ($10^{-16}$ erg/cm2/s):'),
@@ -30,7 +31,7 @@ class Galaxy(object):
     }
 
     params = ('redshift', 'bulge_scale', 'disk_scale', 'bulge_fraction',
-              'axis_ratio',
+              'axis_ratio','pa',
               'velocity_dispersion', 'flux_ha', 'flux_n2a', 'flux_n2b',
               'flux_hb', 'flux_o3a', 'flux_o3b', 'flux_s2a', 'flux_s2b',
               'flux_o2')
@@ -65,7 +66,7 @@ class Galaxy(object):
 
         elements = []
         elements += [self.widgets['redshift']]
-        sizebox = VBox([self.widgets['bulge_scale'], self.widgets['disk_scale'], self.widgets['bulge_fraction'], self.widgets['axis_ratio']])
+        sizebox = VBox([self.widgets['bulge_scale'], self.widgets['disk_scale'], self.widgets['bulge_fraction'], self.widgets['axis_ratio'], self.widgets['pa']])
         elements += [HTML("<b>Size</b>"), HBox([sizebox, self.widgets['half_light_radius']])]
         elements += [HTML("<b>Emission lines</b>"), self.widgets['velocity_dispersion'], self.widgets['flux_ha'], n2box,s2box,hbbox,o3box,o2box]
 

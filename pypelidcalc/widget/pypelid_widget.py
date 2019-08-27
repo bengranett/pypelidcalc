@@ -84,23 +84,46 @@ class PypelidWidget(object):
     def _render(self, lock):
         """ """
         # print "start render"
-        wavelength_scale, flux, var = self.spec(noise=False)
-        wavelength_scale_, flux_n, var_n = self.spec(noise=True)
+        wavelength_scale, flux, var, obs_list = self.spec(noise=False)
+        wavelength_scale_, flux_n, var_n, obs_list_ = self.spec(noise=True)
 
-        self.figs['spec'].data[2]['x'] = wavelength_scale/1e4
+        if len(self.figs['spec'].data[2]['x']) == 0:
+            self.figs['spec'].data[2]['x'] = wavelength_scale/1e4
         self.figs['spec'].data[2]['y'] = flux
 
-        self.figs['spec'].data[1]['x'] = wavelength_scale/1e4
+        if len(self.figs['spec'].data[1]['x']) == 0:
+            self.figs['spec'].data[1]['x'] = wavelength_scale/1e4
         self.figs['spec'].data[1]['y'] = flux_n
 
-        self.figs['spec'].data[0]['x'] = wavelength_scale/1e4
+        if len(self.figs['spec'].data[0]['x']) == 0:
+            self.figs['spec'].data[0]['x'] = wavelength_scale/1e4
         self.figs['spec'].data[0]['y'] = var**0.5
+
+
+        L, gal = obs_list[0]
+        x, y = np.transpose(gal.sample(int(1e6), L.plate_scale))
+
+        dx, dy = np.transpose(L.PSF.sample(len(x)))
+
+        x += dx
+        y += dy
+
+        r = np.sqrt(x*x + y*y)
+        w = int(np.ceil(np.percentile(r, 80))) + 0.5
+        b = np.arange(-w, w+1, 1)
+        h,ey,ex = np.histogram2d(x, y, bins=(b, b))
+
+        x = (ey[1:]+ey[:-1])/2.
+
+        self.figs['image'].data[0]['z'] = h
+        self.figs['image'].data[0]['x'] = x
+        self.figs['image'].data[0]['y'] = x
 
         ii = var > 0
         snr = np.sqrt(np.sum(flux[ii]**2/var[ii]))
         self.widgets['snrbox'].value = "%3.2f"%snr
 
-        self.render_lock.release()
+        lock.release()
 
 
 
@@ -146,6 +169,7 @@ class PypelidWidget(object):
                 disk_scale=self.galaxy.widgets['disk_scale'].value,
                 bulge_fraction=self.galaxy.widgets['bulge_fraction'].value,
                 axis_ratio=self.galaxy.widgets['axis_ratio'].value,
+                pa=self.galaxy.widgets['pa'].value+90,
                 velocity_disp=self.galaxy.widgets['velocity_dispersion'].value,
             )
 
@@ -220,7 +244,7 @@ class PypelidWidget(object):
             specset.append((wavelength_scales[i], np.array(s), np.array(spectra[2])))
         flux_stack, var_stack = combine_spectra(wavelength_scale, specset)
 
-        return wavelength_scale, flux_stack, var_stack
+        return wavelength_scale, flux_stack, var_stack, obs_list
 
 
     def update(self, zgrid, zmeas, wavelength_scale, mean_total, var_total, count):
@@ -487,7 +511,7 @@ class PypelidWidget(object):
         tab.set_title(3, "Survey")
         tab.set_title(4, "Analysis")
         tab.set_title(5, "Config")
-        tab.layout={'height': '500px'}
+        tab.layout={'height': '300px'}
 
         tab.observe(self.tab_event)
 
@@ -507,11 +531,21 @@ class PypelidWidget(object):
         self.figs['spec'].add_scatter(x=[], y=[], name='Realization', line_color='orange')
         self.figs['spec'].add_scatter(x=[], y=[], name='Signal', line_color='black')
 
+        self.figs['image'] = go.FigureWidget()
+        self.figs['image'].update_layout(height=200, width=200, margin=dict(l=0, r=0, t=0, b=0, pad=0),
+                                        )
+        self.figs['image'].add_trace(go.Heatmap(z=[[]],
+                                        # autobinx=False, xbins=dict(start=-10, end=10, size=1),
+                                        # autobiny=False,
+                                        # ybins=dict(start=-10, end=10, size=1),
+                                        showscale=False))
+
         render_button = Button(description="Update realization", layout={'border':'solid 1px black', 'width': '100px'})
         render_button.on_click(self.render)
         display(HBox([HTML('<b>SNR:</b>'), self.widgets['snrbox'], render_button]))
-        display(self.figs['spec'])
-        self.render()
+        display(HBox([self.figs['spec'], self.figs['image']]))
+        self.render_lock.acquire()
+        self._render(self.render_lock)
 
         # self.reset_button(self.widgets['button'])
 

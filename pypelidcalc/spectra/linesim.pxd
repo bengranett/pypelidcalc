@@ -23,14 +23,15 @@ cdef class LineSimulator(object):
     cdef public double lambda_min
     cdef public double lambda_max
     cdef public double dispersion
+    cdef public double plate_scale
+    cdef public psf.PSF_model PSF
 
-    cdef double plate_scale, photon_shoot_limit, c_kms
+    cdef double photon_shoot_limit, c_kms
     cdef public int npix, extraction_window, norm_window
     cdef public double extraction_norm
     cdef double [:] binsx
     cdef double [:] binsy
     cdef public double [:] extraction_weights
-    cdef psf.PSF_model PSF
     cdef interpolate.interpolate_regular transmission_func
     cdef gsl.gsl_rng * rng
 
