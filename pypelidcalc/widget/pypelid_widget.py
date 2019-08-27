@@ -83,6 +83,8 @@ class PypelidWidget(object):
 
     def _render(self, lock):
         """ """
+        self.widgets['render_button'].style.button_color = 'orange'
+
         # print "start render"
         wavelength_scale, flux, var, obs_list = self.spec(noise=False)
         wavelength_scale_, flux_n, var_n, obs_list_ = self.spec(noise=True)
@@ -110,19 +112,21 @@ class PypelidWidget(object):
 
         r = np.sqrt(x*x + y*y)
         w = int(np.ceil(np.percentile(r, 80))) + 0.5
+        w = min(20.5, w)
         b = np.arange(-w, w+1, 1)
         h, ey, ex = np.histogram2d(y, x, bins=(b, b))
 
-        x = (ey[1:]+ey[:-1])/2.
+        bc = (ey[1:]+ey[:-1])/2.
 
         self.figs['image'].data[0]['z'] = h
-        self.figs['image'].data[0]['x'] = x
-        self.figs['image'].data[0]['y'] = x
+        self.figs['image'].data[0]['x'] = bc
+        self.figs['image'].data[0]['y'] = bc
 
         ii = var > 0
         snr = np.sqrt(np.sum(flux[ii]**2/var[ii]))
         self.widgets['snrbox'].value = "%3.2f"%snr
 
+        self.widgets['render_button'].style.button_color = 'lightgreen'
         lock.release()
 
 
@@ -520,7 +524,7 @@ class PypelidWidget(object):
 
         display(tab)
 
-        for widgets in [self.galaxy.widget, self.foreground.widget, self.instrument.widget, self.survey.widget, self.config.widget]:
+        for widgets in [self.galaxy.widget, self.foreground.widget, self.instrument.widget, self.survey.widget, self.analysis.widget]:
             for key, w in widgets.widgets.items():
                 w.observe(self.render, names='value')
 
@@ -537,15 +541,11 @@ class PypelidWidget(object):
         self.figs['image'] = go.FigureWidget()
         self.figs['image'].update_layout(height=200, width=200, margin=dict(l=0, r=0, t=0, b=0, pad=0),
                                         )
-        self.figs['image'].add_trace(go.Heatmap(z=[[]],
-                                        # autobinx=False, xbins=dict(start=-10, end=10, size=1),
-                                        # autobiny=False,
-                                        # ybins=dict(start=-10, end=10, size=1),
-                                        showscale=False))
+        self.figs['image'].add_trace(go.Heatmap(z=[[]], showscale=False))
 
-        render_button = Button(description="Update realization", layout={'border':'solid 1px black', 'width': '100px'})
-        render_button.on_click(self.render)
-        display(HBox([HTML('<b>SNR:</b>'), self.widgets['snrbox'], render_button]))
+        self.widgets['render_button'] = Button(description="Update realization", layout={'border':'solid 1px black', 'width': '150px'})
+        self.widgets['render_button'].on_click(self.render)
+        display(HBox([HTML('<b>SNR:</b>'), self.widgets['snrbox'], self.widgets['render_button']]))
         display(HBox([self.figs['spec'], self.figs['image']]))
         self.render_lock.acquire()
         self._render(self.render_lock)
