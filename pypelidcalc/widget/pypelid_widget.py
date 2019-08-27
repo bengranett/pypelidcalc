@@ -503,14 +503,17 @@ class PypelidWidget(object):
 
     def show(self):
         """ """
-        display(HTML("Pypelidcalc version: %s"%pypelidcalc.__version__))
-        tab = Tab([self.galaxy.widget, self.foreground.widget, self.instrument.widget, self.survey.widget, self.analysis.widget, self.config.widget])
+        # display()
+        about = VBox([HTML("<a href=\"https://github.com/bengranett/pypelidcalc\" target=\"_blank\">Pypelid-calc</a> version: %s"%pypelidcalc.__version__)])
+
+        tab = Tab([self.galaxy.widget, self.foreground.widget, self.instrument.widget, self.survey.widget, self.analysis.widget, self.config.widget, about])
         tab.set_title(0, "Source")
         tab.set_title(1, "Foreground")
         tab.set_title(2, "Instrument")
         tab.set_title(3, "Survey")
         tab.set_title(4, "Analysis")
         tab.set_title(5, "Config")
+        tab.set_title(6, "About")
         tab.layout={'height': '300px'}
 
         tab.observe(self.tab_event)
