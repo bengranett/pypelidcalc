@@ -111,7 +111,7 @@ class PypelidWidget(object):
         r = np.sqrt(x*x + y*y)
         w = int(np.ceil(np.percentile(r, 80))) + 0.5
         b = np.arange(-w, w+1, 1)
-        h,ey,ex = np.histogram2d(x, y, bins=(b, b))
+        h, ey, ex = np.histogram2d(y, x, bins=(b, b))
 
         x = (ey[1:]+ey[:-1])/2.
 
@@ -169,7 +169,7 @@ class PypelidWidget(object):
                 disk_scale=self.galaxy.widgets['disk_scale'].value,
                 bulge_fraction=self.galaxy.widgets['bulge_fraction'].value,
                 axis_ratio=self.galaxy.widgets['axis_ratio'].value,
-                pa=self.galaxy.widgets['pa'].value+90,
+                pa=self.galaxy.widgets['pa'].value,
                 velocity_disp=self.galaxy.widgets['velocity_dispersion'].value,
             )
 
