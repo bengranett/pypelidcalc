@@ -4,6 +4,7 @@ from ipywidgets import HTML, VBox, BoundedFloatText, BoundedIntText, Dropdown
 configurations = {
     'Euclid Wide':{'exp_time': 565, 'nexp_red': 4, 'nexp_blue': 0},
     'Euclid Deep':{'exp_time': 565, 'nexp_red': 100, 'nexp_blue': 100},
+    'HST': {'exp_time': 5700, 'nexp_red': 2, 'nexp_blue':0},
     'custom': {}
 }
 

@@ -91,9 +91,10 @@ class PypelidWidget(object):
         wavelength_scale_, flux_n, var_, obs_list_ = self.spec(noise=True)
 
         self.wavelength_scale = wavelength_scale / 1e4
-        self.signal = flux
-        self.real = flux_n
-        self.noise = var**0.5
+        step = wavelength_scale[1] - wavelength_scale[0]
+        self.signal = flux / step
+        self.real = flux_n / step
+        self.noise = var**0.5 / step
 
         self.hideshow_line()
 
