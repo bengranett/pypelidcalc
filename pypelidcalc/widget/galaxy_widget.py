@@ -12,8 +12,8 @@ class Galaxy(object):
     widgets = {
         'redshift': BoundedFloatText(value=1, min=0, max=10, step=0.1, description="Redshift"),
         'bulge_scale': BoundedFloatText(value=0.5, min=0, max=10, step=0.1, description="Bulge scale (arcsec)"),
-        'disk_scale': BoundedFloatText(value=0.5, min=0, max=10, step=0.1, description="Disk scale (arcsec)"),
-        'bulge_fraction': BoundedFloatText(value=1, min=0, max=1, step=0.1, description="Bulge fraction"),
+        'disk_scale': BoundedFloatText(value=0.3, min=0, max=10, step=0.1, description="Disk scale (arcsec)"),
+        'bulge_fraction': BoundedFloatText(value=.5, min=0, max=1, step=0.1, description="Bulge fraction"),
         'axis_ratio': BoundedFloatText(value=1, min=0.01, max=1, step=0.1, description="Axis ratio"),
         'pa': BoundedFloatText(value=0, min=-180, max=180, step=10, description="Position angle"),
         'iso': Checkbox(value=True, description="Isotropize"),

@@ -4,7 +4,7 @@ import threading
 import numpy as np
 from templatefit import template_fit
 from IPython.display import display
-from ipywidgets import HTML, HBox, VBox, Button, Tab, Output, IntProgress, Label, BoundedIntText
+from ipywidgets import HTML, HBox, VBox, Button, Tab, Output, IntProgress, Label, BoundedIntText, Checkbox
 from scipy import interpolate
 
 import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget, config_widget
@@ -59,7 +59,9 @@ class PypelidWidget(object):
         'zerr_68': Label(layout={'border':'solid 1px green', 'width': '100px'}),
         'zerr_sys': Label(layout={'border':'solid 1px green', 'width': '100px'}),
         'zerr_cat': Label(layout={'border':'solid 1px green', 'width': '100px'}),
-
+        'signal_on': Checkbox(value=True, description='Signal'),
+        'noise_on': Checkbox(value=True, description='Noise'),
+        'real_on': Checkbox(value=True, description='Realization'),
     }
 
     def __init__(self):
@@ -85,22 +87,15 @@ class PypelidWidget(object):
         """ """
         self.widgets['render_button'].style.button_color = 'orange'
 
-        # print "start render"
         wavelength_scale, flux, var, obs_list = self.spec(noise=False)
-        wavelength_scale_, flux_n, var_n, obs_list_ = self.spec(noise=True)
+        wavelength_scale_, flux_n, var_, obs_list_ = self.spec(noise=True)
 
-        if len(self.figs['spec'].data[2]['x']) == 0:
-            self.figs['spec'].data[2]['x'] = wavelength_scale/1e4
-        self.figs['spec'].data[2]['y'] = flux
+        self.wavelength_scale = wavelength_scale
+        self.signal = flux
+        self.real = flux_n
+        self.noise = var**0.5
 
-        if len(self.figs['spec'].data[1]['x']) == 0:
-            self.figs['spec'].data[1]['x'] = wavelength_scale/1e4
-        self.figs['spec'].data[1]['y'] = flux_n
-
-        if len(self.figs['spec'].data[0]['x']) == 0:
-            self.figs['spec'].data[0]['x'] = wavelength_scale/1e4
-        self.figs['spec'].data[0]['y'] = var**0.5
-
+        self.hideshow_line()
 
         L, gal = obs_list[0]
         x, y = np.transpose(gal.sample(int(1e6), L.plate_scale, self.galaxy.widgets['iso'].value))
@@ -287,11 +282,6 @@ class PypelidWidget(object):
         b = np.where(h>0)[0][-1]+1
         x = x[a:b+1]
         h = h[a:b+1]
-
-        self.figs['spec'].data[0]['x'] = wavelength_scale/1e4
-        self.figs['spec'].data[0]['y'] = m
-        self.figs['spec'].data[1]['x'] = wavelength_scale/1e4
-        self.figs['spec'].data[1]['y'] = var**0.5
 
         self.figs['pdf'].data[0]['x'] = x
         self.figs['pdf'].data[0]['y'] = h
@@ -503,7 +493,14 @@ class PypelidWidget(object):
             if change['new'] == 5:
                 self.config.update()
 
-
+    def hideshow_line(self, change=None):
+        for key,i,arr in [('signal_on',2,self.signal),('real_on',1,self.real),('noise_on',0,self.noise)]:
+            if self.widgets[key].value:
+                if len(self.figs['spec'].data[i]['x']) == 0:
+                    self.figs['spec'].data[i]['x'] = self.wavelength_scale
+                self.figs['spec'].data[i]['y'] = arr
+            else:
+                self.figs['spec'].data[i]['y'] = []
 
     def show(self):
         """ """
@@ -524,8 +521,8 @@ class PypelidWidget(object):
 
         display(tab)
 
-        for widgets in [self.galaxy.widget, self.foreground.widget, self.instrument.widget, self.survey.widget, self.analysis.widget]:
-            for key, w in widgets.widgets.items():
+        for group in [self.galaxy, self.foreground, self.instrument, self.survey, self.analysis]:
+            for key, w in group.widgets.items():
                 w.observe(self.render, names='value')
 
         self.figs = {}
@@ -535,43 +532,52 @@ class PypelidWidget(object):
                                   yaxis_title='Flux density',
                                   margin=dict(l=0, r=0, t=0, b=0, pad=0))
         self.figs['spec'].add_scatter(x=[], y=[], name='Noise', line_color='grey')
-        self.figs['spec'].add_scatter(x=[], y=[], name='Realization', line_color='orange')
+        self.figs['spec'].add_scatter(x=[], y=[], name='Realization', line_color='dodgerblue')
         self.figs['spec'].add_scatter(x=[], y=[], name='Signal', line_color='black')
 
+
         self.figs['image'] = go.FigureWidget()
-        self.figs['image'].update_layout(height=200, width=200, margin=dict(l=0, r=0, t=0, b=0, pad=0),
-                                        )
+        self.figs['image'].update_layout(height=200, width=200, margin=dict(l=0, r=0, t=0, b=0, pad=0))
+
         self.figs['image'].add_trace(go.Heatmap(z=[[]], showscale=False))
 
-        self.widgets['render_button'] = Button(description="Update realization", layout={'border':'solid 1px black', 'width': '150px'})
+        self.widgets['render_button'] = Button(description="Update realization", layout={'border':'solid 1px black', 'width': '200px'})
         self.widgets['render_button'].on_click(self.render)
-        display(HBox([HTML('<b>SNR:</b>'), self.widgets['snrbox'], self.widgets['render_button']]))
+
+        self.widgets['signal_on'].observe(self.hideshow_line, names='value')
+        self.widgets['real_on'].observe(self.hideshow_line, names='value')
+        self.widgets['noise_on'].observe(self.hideshow_line, names='value')
+
+        checkboxes = HBox([self.widgets['signal_on'], self.widgets['noise_on'], self.widgets['real_on']])
+        display(HTML('<h3>Spectrum</h3>'))
+        display(HBox([HTML('SNR:'), self.widgets['snrbox'], self.widgets['render_button'], checkboxes]))
         display(HBox([self.figs['spec'], self.figs['image']]))
+
+        self.reset_button(self.widgets['button'])
+        self.widgets['button'].on_click(self.click_start)
+
+        elements = [HTML("<h3>Redshift measurement</h3>")]
+        elements +=  [HBox([self.widgets['nreal'], self.widgets['button'], self.widgets['progress'], self.widgets['timer']])]
+
+        horiz = [HTML('<b>Statistics:</b>')]
+        horiz += [HTML('Mean z:'), self.widgets['zmeas']]
+        horiz += [HTML('Error:'), self.widgets['zerr']]
+        horiz += [HTML('68% limit:'), self.widgets['zerr_68']]
+        horiz += [HTML('Fractional systematic:'), self.widgets['zerr_sys']]
+        horiz += [HTML('Outlier rate:'), self.widgets['zerr_cat']]
+
+        elements += [HBox(horiz)]
+
+        display(VBox(elements))
+
+        self.figs['pdf'] = go.FigureWidget()
+        self.figs['pdf'].update_layout(xaxis_title='Redshift', height=200,
+                              yaxis_title='Distribution',margin=dict(l=0, r=0, t=0, b=0, pad=0))
+
+        self.figs['pdf'].add_scatter(x=[], y=[], name='Measured redshift')
+
+        display(self.figs['pdf'])
+
         self.render_lock.acquire()
         self._render(self.render_lock)
-
-        # self.reset_button(self.widgets['button'])
-
-        # self.widgets['button'].on_click(self.click_start)
-
-        # elements =  [HBox([self.widgets['nreal'], self.widgets['button'], self.widgets['progress'], self.widgets['timer']])]
-        # elements += [HTML('<b>Redshift measurement statistics</b>')]
-        # elements += [HBox([HTML('<b>SNR:</b>'), self.widgets['snrbox']])]
-        # horiz = [HTML('<b>Mean z:</b>'), self.widgets['zmeas']]
-        # horiz += [HTML('<b>Error:</b>'), self.widgets['zerr']]
-        # horiz += [HTML('<b>68% limit:</b>'), self.widgets['zerr_68']]
-        # horiz += [HTML('<b>Fractional systematic:</b>'), self.widgets['zerr_sys']]
-        # horiz += [HTML('<b>Outlier rate:</b>'), self.widgets['zerr_cat']]
-
-        # elements += [HBox(horiz)]
-
-        # display(VBox(elements))
-
-        # self.figs['pdf'] = go.FigureWidget()
-        # self.figs['pdf'].update_layout(xaxis_title='Redshift', height=200,
-        #                       yaxis_title='Distribution',margin=dict(l=0, r=0, t=0, b=0, pad=0))
-
-        # self.figs['pdf'].add_scatter(x=[], y=[], name='Measured redshift')
-
-        # display(self.figs['pdf'])
 
