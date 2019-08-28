@@ -20,6 +20,19 @@ configurations = {
             'transmission_red': 'red_transmission.txt',
             'transmission_blue': 'blue_transmission.txt',
     },
+    'HST G141': {
+            'collecting_surface_area': 45239,
+            'psf_amp': 1,
+            'psf_sig1': 0.4,
+            'psf_sig2': 0,
+            'pix_size': 0.13,
+            'pix_disp': 24.,
+            'readnoise': 12,
+            'darkcurrent': 0.048,
+            'transmission_red': 'HST_WFC3_IR.G141.dat',
+            'transmission_blue': 'none',
+
+    },
     'custom': {},
 }
 
@@ -30,7 +43,7 @@ def get_transmission_files(dir=TRANSMISSION_DIR):
     if not os.path.exists(dir):
         return filelist
     for filename in os.listdir(dir):
-        if filename.endswith("txt"):
+        if filename.endswith("txt") or filename.endswith("dat"):
             filelist.append(filename)
     filelist += ['none']
     return filelist
@@ -87,7 +100,7 @@ class Instrument(object):
 
         self.figs = [go.FigureWidget(), go.FigureWidget()]
         self.figs[0].update_layout(xaxis_title='Wavelength (microns)',
-                          yaxis_title='Efficiency',
+                          yaxis_title='Throughput',
                           width=500, height=200,
                           margin=dict(l=0, r=0, t=0, b=0, pad=0), autosize=True)
         self.figs[1].update_layout(xaxis_title='Radius (pixels)',
@@ -202,6 +215,8 @@ class Instrument(object):
         """ """
         config_list = []
         for key in 'transmission_red', 'transmission_blue':
+            if not self.widgets[key].value or self.widgets[key].value == 'none':
+                continue
             config = {}
             config['collecting_surface_area'] = self.widgets['collecting_surface_area'].value
             config['pix_size'] = self.widgets['pix_size'].value

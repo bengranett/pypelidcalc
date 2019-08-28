@@ -4,6 +4,7 @@ import numpy as np
 from . import phot, psf
 from pypelidcalc.cutils import interpolate
 from scipy import integrate
+from scipy import interpolate as scipy_interpolate
 
 def load_transmission_function(filename):
     """ Load tabulated transmission function from a text file and return
@@ -20,6 +21,15 @@ def load_transmission_function(filename):
     data = np.loadtxt(filename, unpack=True)
     assert len(data) > 1
     x = data[0]
+
+    step = x[1:] - x[:-1]
+    if not np.allclose(step[0], step):
+        interpfunc = scipy_interpolate.interp1d(x, data[1])
+        new_x = np.linspace(x.min(), x.max(), len(x))
+        y = interpfunc(new_x)
+        data = [0, y]
+        x = new_x
+
 
     interp_funcs = []
 
