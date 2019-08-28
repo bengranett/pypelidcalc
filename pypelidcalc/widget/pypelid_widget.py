@@ -90,7 +90,7 @@ class PypelidWidget(object):
         wavelength_scale, flux, var, obs_list = self.spec(noise=False)
         wavelength_scale_, flux_n, var_, obs_list_ = self.spec(noise=True)
 
-        self.wavelength_scale = wavelength_scale
+        self.wavelength_scale = wavelength_scale / 1e4
         self.signal = flux
         self.real = flux_n
         self.noise = var**0.5
@@ -496,7 +496,7 @@ class PypelidWidget(object):
     def hideshow_line(self, change=None):
         for key,i,arr in [('signal_on',2,self.signal),('real_on',1,self.real),('noise_on',0,self.noise)]:
             if self.widgets[key].value:
-                if len(self.figs['spec'].data[i]['x']) == 0:
+                if len(self.figs['spec'].data[i]['x']) != len(self.wavelength_scale):
                     self.figs['spec'].data[i]['x'] = self.wavelength_scale
                 self.figs['spec'].data[i]['y'] = arr
             else:
