@@ -4,6 +4,8 @@ import StringIO
 
 from ipywidgets import VBox, HTML, Textarea, Button, Text
 
+import traitlets
+
 import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget
 
 
@@ -25,10 +27,10 @@ for w in objs:
 
 class Config(object):
     style = {'description_width': '200px'}
-    layout = {'width': '500px', 'height': '500px'}
+    layout = {'width': '500px', 'height': '200px'}
 
     widgets = {
-        'configarea': Textarea(value='', placeholder='# paste config parameters here', description='Configuration'),
+        'configarea': Textarea(value='', placeholder='# paste config parameters here', description='Edit configuration list:'),
     }
 
     def __init__(self, widget_list):
@@ -36,15 +38,14 @@ class Config(object):
         self.widget_list = widget_list
 
         self.widgets['configarea'].layout = self.layout
+        self.widgets['configarea'].style = self.style
 
         button = Button(description="Apply")
         button.style.button_color = 'lightgreen'
 
         button.on_click(self.load_params)
 
-        message = HTML("Paste a configuration set here.")
-
-        self.widget = VBox([message,self.widgets['configarea'], button])
+        self.widget = VBox([self.widgets['configarea'], button])
 
         self.update()
 
@@ -87,14 +88,22 @@ class Config(object):
             try:
                 value = float(value)
             except ValueError:
-                pass
+                if value.lower() == "true":
+                    value = True
+                elif value.lower() == "false":
+                    value = False
+                else:
+                    pass
 
             if key not in parameter_names:
                 continue
             for w in self.widget_list:
                 if key in w.widgets:
                     parsed_lines.append(line)
-                    w.widgets[key].value = value
+                    try:
+                        w.widgets[key].value = value
+                    except traitlets.TraitError:
+                        print "error setting",key,value
         param_listing = "\n".join(parsed_lines)
         # self.widgets['configarea'].value = param_listing
         self.update()
