@@ -76,6 +76,7 @@ cython_files = [
     "pypelidcalc/cutils/histogram.pyx",
     "pypelidcalc/cutils/interpolate.pyx",
     "pypelidcalc/cutils/rootfinder.pyx",
+    "pypelidcalc/cutils/rng.pyx",
     "pypelidcalc/spectra/_profile_calc.pyx",
     "pypelidcalc/spectra/bulgy_disk.pyx",
     "pypelidcalc/spectra/galaxy.pyx",

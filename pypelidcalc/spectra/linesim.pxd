@@ -34,7 +34,6 @@ cdef class LineSimulator(object):
     cdef double [:] binsy
     cdef public double [:] extraction_weights
     cdef interpolate.interpolate_regular transmission_func
-    cdef gsl.gsl_rng * rng
 
     cdef double [:] image
     cdef double [:] image_tmp

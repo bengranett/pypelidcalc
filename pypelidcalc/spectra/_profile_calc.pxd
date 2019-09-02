@@ -35,7 +35,6 @@ cdef class BaseProfile:
 	cdef double res, rmax, step, prec
 	cdef int logscale
 	cdef interpolate.interp1d radius_interp
-	cdef gsl.gsl_rng * rng
 
 	cdef void setup_interp(self)
 	cdef double integrated(self, double r, double scale) nogil

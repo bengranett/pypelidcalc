@@ -49,7 +49,7 @@ class Optics(object):
 
     params = ('collecting_surface_area', 'pix_size', 'pix_disp', 'lambda_range', 'transmission_path', 'psf_amp', 'psf_sig1', 'psf_sig2')
 
-    def __init__(self, config=None, seed=None, **kwargs):
+    def __init__(self, config=None, **kwargs):
         """ """
         config = config if config else {}
 
@@ -61,7 +61,7 @@ class Optics(object):
 
         self.collecting_area = self.config['collecting_surface_area']
 
-        self.PSF = psf.PSF_model(config['psf_amp'], config['psf_sig1'], config['psf_sig2'], seed=seed)
+        self.PSF = psf.PSF_model(config['psf_amp'], config['psf_sig1'], config['psf_sig2'])
 
         self.ARCSEC_TO_PIX = 1. / self.config['pix_size']
         self.PIX_TO_ARCSEC = self.config['pix_size']

@@ -14,6 +14,7 @@ import time
 import logging
 
 from pypelidcalc.cutils cimport histogram as H
+from pypelidcalc.cutils cimport rng
 
 from pypelidcalc.utils import consts
 
@@ -68,14 +69,6 @@ cdef class LineSimulator:
 
 		self.c_kms = consts.c_kms # speed of light in km/s
 
-
-		self.rng = gsl.gsl_rng_alloc(gsl.gsl_rng_taus)
-
-		if seed is None:
-			seed = time.time() * 1000000
-
-		gsl.gsl_rng_set(self.rng, seed)
-
 		self.image = cvarray(shape=(self.nx,), itemsize=sizeof(double), format='d')
 		self.image_tmp = cvarray(shape=(self.nx,), itemsize=sizeof(double), format='d')
 		self.image_noisy = cvarray(shape=(self.nx,), itemsize=sizeof(double), format='d')
@@ -86,10 +79,6 @@ cdef class LineSimulator:
 			self.noise_image[i] = 0
 
 		self.init_noise_template()
-
-	def __dealloc__(self):
-		""" """
-		gsl.gsl_rng_free(self.rng)
 
 	def init_extraction_weights(self, extraction_weights, extraction_sigma):
 		""" """
@@ -212,7 +201,7 @@ cdef class LineSimulator:
 					continue
 
 				if velocity_disp > 0:
-					dx_vel = gsl.gsl_ran_gaussian(self.rng, velocity_disp)
+					dx_vel = rng.rng.gaussian(velocity_disp)
 
 				x = loc_x + xy[i, 0] + psf_xy[i, 0] + dx_vel
 
@@ -382,14 +371,14 @@ cdef class LineSimulator:
 				# Put a limit on the number of photons.  This sets a ceiling on SNR which depends on the profile.
 				# Recompute the scale
 				scale = self.photon_shoot_limit / gal.emission_line[line_i].flux
-				nphot = self.photon_shoot_limit + gsl.gsl_ran_gaussian(self.rng, self.photon_shoot_limit/math.sqrt(nphot))
+				nphot = self.photon_shoot_limit + rng.rng.gaussian(self.photon_shoot_limit/math.sqrt(nphot))
 			else:
 				# Poisson sample
 				# If N>~100 use a Gaussian distribution instead of Poisson
 				if nphot < POISSON_SAMPLE_LIMIT:
-					nphot = <double> gsl.gsl_ran_poisson(self.rng, nphot)
+					nphot = <double> rng.rng.poisson(nphot)
 				else:
-					nphot += gsl.gsl_ran_gaussian(self.rng, math.sqrt(nphot))
+					nphot += rng.rng.gaussian(math.sqrt(nphot))
 
 			if nphot <= 0:
 				continue
@@ -439,7 +428,7 @@ cdef class LineSimulator:
 		nx = image.shape[0]
 		for i in range(nx):
 			if var[i] > 0:
-				image_out[i] = image[i] + gsl.gsl_ran_gaussian(self.rng, math.sqrt(var[i]))
+				image_out[i] = image[i] + rng.rng.gaussian(math.sqrt(var[i]))
 			else:
 				image_out[i] = image[i]
 

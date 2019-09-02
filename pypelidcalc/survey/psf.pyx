@@ -11,13 +11,13 @@ from libc cimport math
 cimport cython_gsl as gsl
 from cython.view cimport array as cvarray
 
-from pypelidcalc.cutils cimport interpolate
+from pypelidcalc.cutils cimport interpolate, rng
 
 
 cdef class PSF_model:
     """ Point spread function model """
 
-    def __init__(self, double amp, double scale1, double scale2, double range_max=3.0, double step=0.1, seed=None):
+    def __init__(self, double amp, double scale1, double scale2, double range_max=3.0, double step=0.1):
         """ """
         cdef double smin, smax
 
@@ -67,22 +67,6 @@ cdef class PSF_model:
         self.range_max = range_max * smax
         self.step = step * smin
         self._init_model()
-
-    def __cinit__(self, *args, **kwargs):
-        """ """
-        cdef unsigned long int seed
-        if 'seed' in kwargs and kwargs['seed'] is not None:
-            seed = kwargs['seed']
-        else:
-            seed = time.time()
-        # logging.info("seed: %i", seed)
-        self.rng = gsl.gsl_rng_alloc(gsl.gsl_rng_taus)
-        # logging.info("rng: %s",gsl.gsl_rng_name(self.rng))
-        gsl.gsl_rng_set(self.rng, seed)
-
-    def __deallocate__(self):
-        """ """
-        gsl.gsl_rng_free(self.rng)
 
     cdef double prof_scalar(self, double r) nogil:
         """ """
@@ -203,10 +187,10 @@ cdef class PSF_model:
         with nogil:
             for i in range(n):
 
-                e = gsl.gsl_rng_uniform(self.rng)
+                e = rng.rng.uniform()
                 r = self._integ_prof.evaluate(e)
 
-                theta = gsl.gsl_rng_uniform(self.rng) * 2 * math.M_PI
+                theta = rng.rng.uniform() * 2 * math.M_PI
                 x[i, 0] = r * math.cos(theta)
                 x[i, 1] = r * math.sin(theta)
 

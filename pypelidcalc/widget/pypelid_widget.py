@@ -4,7 +4,7 @@ import threading
 import numpy as np
 from templatefit import template_fit
 from IPython.display import display
-from ipywidgets import HTML, HBox, VBox, Button, Tab, Output, IntProgress, Label, BoundedIntText, Checkbox
+from ipywidgets import HTML, HBox, VBox, Button, Tab, Output, IntProgress, Label, BoundedIntText, IntText, Checkbox
 from scipy import interpolate
 
 import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget, config_widget
@@ -12,6 +12,7 @@ import pypelidcalc
 from pypelidcalc.spectra import galaxy, linesim
 from pypelidcalc.survey import phot, optics
 from pypelidcalc.utils import consts
+from pypelidcalc.cutils import rng
 
 import plotly.graph_objects as go
 
@@ -59,9 +60,11 @@ class PypelidWidget(object):
         'zerr_68': Label(layout={'border':'solid 1px green', 'width': '100px'}),
         'zerr_sys': Label(layout={'border':'solid 1px green', 'width': '100px'}),
         'zerr_cat': Label(layout={'border':'solid 1px green', 'width': '100px'}),
-        'signal_on': Checkbox(value=True, description='Signal'),
-        'noise_on': Checkbox(value=True, description='Noise'),
-        'real_on': Checkbox(value=True, description='Realization'),
+        'signal_on': Checkbox(value=True, description='Signal', layout={'width':'80px'}, style={'description_width': '0px'}),
+        'noise_on': Checkbox(value=True, description='Noise', layout={'width':'80px'}, style={'description_width': '0px'}),
+        'real_on': Checkbox(value=True, description='Realization', layout={'width':'80px'}, style={'description_width': '0px'}),
+        'seed': IntText(description='Seed', disabled=True, layout={'width':'150px'}, style={'description_width': '50px'}),
+        'seed_checkbox': Checkbox(value=False, description='Freeze random seed',layout={'width':'150px'}, style={'description_width': '0px'}),
     }
 
     def __init__(self):
@@ -74,18 +77,27 @@ class PypelidWidget(object):
         self.running = False
 
         self.render_lock = threading.Lock()
+        self.param_lock = threading.Lock()
 
     def render(self, change=None):
         """ """
         if not self.render_lock.acquire(False):
             # print "locked"
             return
-        render_thread = threading.Thread(target=self._render, args=(self.render_lock,))
+        if not self.param_lock.acquire(False):
+            return
+        render_thread = threading.Thread(target=self._render, args=((self.render_lock, self.param_lock),))
         render_thread.start()
 
-    def _render(self, lock):
+    def _render(self, locks):
         """ """
         self.widgets['render_button'].style.button_color = 'orange'
+
+        if not self.widgets['seed_checkbox'].value:
+            self.widgets['seed'].value = np.random.randint(0,1e6)
+        seed = self.widgets['seed'].value
+
+        rng.seed(seed)
 
         wavelength_scale, flux, var, obs_list = self.spec(noise=False)
         wavelength_scale_, flux_n, var_, obs_list_ = self.spec(noise=True)
@@ -123,7 +135,8 @@ class PypelidWidget(object):
         self.widgets['snrbox'].value = "%3.2f"%snr
 
         self.widgets['render_button'].style.button_color = 'lightgreen'
-        lock.release()
+        for lock in locks:
+            lock.release()
 
 
 
@@ -147,6 +160,8 @@ class PypelidWidget(object):
 
         ztol = self.analysis.widgets['ztol'].value
 
+
+
         config_list = self.instrument.get_config_list()
         obs_list = []
         for i, config in enumerate(config_list):
@@ -155,7 +170,7 @@ class PypelidWidget(object):
             if nexp == 0:
                 continue
 
-            O = optics.Optics(config, seed=time.time()*1e6)
+            O = optics.Optics(config)
 
             L = linesim.LineSimulator(O, extraction_sigma=self.analysis.widgets['extraction_sigma'].value, isotropize=self.galaxy.widgets['iso'].value)
 
@@ -290,6 +305,7 @@ class PypelidWidget(object):
 
     def run(self, stop_event):
         """ """
+        self.param_lock.acquire()
         self._start_time = time.time()
 
         emission_lines = [
@@ -326,8 +342,6 @@ class PypelidWidget(object):
                     line_width=0,
         ),])
 
-
-
         config_list = self.instrument.get_config_list()
         obs_list = []
         for i, config in enumerate(config_list):
@@ -336,7 +350,7 @@ class PypelidWidget(object):
             if nexp == 0:
                 continue
 
-            O = optics.Optics(config, seed=time.time()*1e6)
+            O = optics.Optics(config)
 
             L = linesim.LineSimulator(O, extraction_sigma=self.analysis.widgets['extraction_sigma'].value, isotropize=self.galaxy.widgets['iso'].value)
 
@@ -467,6 +481,7 @@ class PypelidWidget(object):
         self.widgets['progress'].value = 0
         self.update(zgrid, zmeas, wavelength_scale, mean_total, var_total, count)
         self.reset_button(self.widgets['button'])
+        self.param_lock.release()
 
 
     def click_start(self, button):
@@ -502,6 +517,12 @@ class PypelidWidget(object):
                 self.figs['spec'].data[i]['y'] = arr
             else:
                 self.figs['spec'].data[i]['y'] = []
+
+    def seed_checkbox(self, change=None):
+        if self.widgets['seed_checkbox'].value:
+            self.widgets['seed'].disabled = False
+        else:
+            self.widgets['seed'].disabled = True
 
     def show(self):
         """ """
@@ -545,12 +566,15 @@ class PypelidWidget(object):
         self.widgets['render_button'] = Button(description="Update realization", layout={'border':'solid 1px black', 'width': '200px'})
         self.widgets['render_button'].on_click(self.render)
 
+        self.widgets['seed_checkbox'].observe(self.seed_checkbox, names='value')
+
         self.widgets['signal_on'].observe(self.hideshow_line, names='value')
         self.widgets['real_on'].observe(self.hideshow_line, names='value')
         self.widgets['noise_on'].observe(self.hideshow_line, names='value')
 
         checkboxes = HBox([self.widgets['signal_on'], self.widgets['noise_on'], self.widgets['real_on']])
         display(HTML('<h3>Spectrum</h3>'))
+        display(HBox([self.widgets['seed_checkbox'], self.widgets['seed']]))
         display(HBox([HTML('SNR:'), self.widgets['snrbox'], self.widgets['render_button'], checkboxes]))
         display(HBox([self.figs['spec'], self.figs['image']]))
 
@@ -580,5 +604,6 @@ class PypelidWidget(object):
         display(self.figs['pdf'])
 
         self.render_lock.acquire()
-        self._render(self.render_lock)
+        self.param_lock.acquire()
+        self._render((self.render_lock, self.param_lock))
 

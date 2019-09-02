@@ -24,7 +24,7 @@ from cython.view cimport array as cvarray
 
 cimport cython_gsl as gsl
 
-from pypelidcalc.cutils cimport interpolate
+from pypelidcalc.cutils cimport interpolate, rng
 
 from pypelidcalc.utils import consts
 
@@ -171,18 +171,6 @@ cdef class BaseProfile:
 
 		self.setup_interp()
 
-	def __cinit__(self, *args, **kwargs):
-		""" """
-		cdef unsigned long int seed = kwargs['seed']
-		# logging.info("seed: %i", seed)
-		self.rng = gsl.gsl_rng_alloc(gsl.gsl_rng_taus)
-		# logging.info("rng: %s",gsl.gsl_rng_name(self.rng))
-		gsl.gsl_rng_set(self.rng, seed)
-
-	def __deallocate__(self):
-		""" """
-		gsl.gsl_rng_free(self.rng)
-
 	def __str__(self):
 		""" """
 		return "<{} : rmax={}, res={}, step={}>".format(
@@ -291,16 +279,16 @@ cdef class BaseProfile:
 		with nogil:
 			for i in range(n):
 
-				e = gsl.gsl_rng_uniform(self.rng)
+				e = rng.rng.uniform()
 				r = self.radius_interp.evaluate(e) * scale
 
-				theta = gsl.gsl_rng_uniform(self.rng) * 2 * math.M_PI
+				theta = rng.rng.uniform() * 2 * math.M_PI
 				x[i, 0] = r * root_axis_ratio * math.cos(theta)
 				x[i, 1] = r / root_axis_ratio * math.sin(theta)
 
 				if rotate:
 					if isotropize:
-						theta = gsl.gsl_rng_uniform(self.rng) * 2 * math.M_PI
+						theta = rng.rng.uniform() * 2 * math.M_PI
 						costh = math.cos(theta)
 						sinth = math.sin(theta)
 					x_temp = x[i,0] * costh + x[i,1] * sinth
