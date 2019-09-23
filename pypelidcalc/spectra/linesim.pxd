@@ -1,5 +1,5 @@
 from pypelidcalc.survey cimport psf
-from galaxy cimport Galaxy
+from . galaxy cimport Galaxy
 cimport pypelidcalc.cutils.interpolate as interpolate
 cimport cython_gsl as gsl
 

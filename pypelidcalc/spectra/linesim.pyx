@@ -18,8 +18,7 @@ from pypelidcalc.cutils cimport rng
 
 from pypelidcalc.utils import consts
 
-cimport galaxy
-from galaxy cimport Galaxy, galaxy_struct
+from . galaxy cimport Galaxy, galaxy_struct
 
 
 cdef class LineSimulator:

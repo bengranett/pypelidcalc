@@ -1,12 +1,11 @@
 from collections import OrderedDict
 import gzip
-import StringIO
 
 from ipywidgets import VBox, HTML, Textarea, Button, Text
 
 import traitlets
 
-import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget
+from . import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget
 
 
 objs = (
@@ -59,7 +58,7 @@ class Config(object):
                     try:
                         params[key] = w.widgets[key].value
                     except AttributeError:
-                        print "error", key
+                        print("error %s"%key)
                         continue
 
         param_listing = ""
@@ -81,7 +80,7 @@ class Config(object):
             try:
                 key, value = line.split("=")
             except:
-                print "error",line, line.split("=")
+                print("error %s %s"%(line, line.split("=")))
             key = key.strip()
             value = value.strip()
 
@@ -103,7 +102,7 @@ class Config(object):
                     try:
                         w.widgets[key].value = value
                     except traitlets.TraitError:
-                        print "error setting",key,value
+                        print("error setting %s %s"%(key,value))
         param_listing = "\n".join(parsed_lines)
         # self.widgets['configarea'].value = param_listing
         self.update()

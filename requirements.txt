@@ -1,11 +1,11 @@
 numpy
-scipy<1.3
-pandas<=0.24
+scipy>1.3
+pandas>0.25
 
 cython
 cythongsl
 plotly
 
-templatefit @ git+https://github.com/bengranett/templatefit@master#egg=templatefit-0
+templatefit @ git+https://github.com/bengranett/templatefit@py3#egg=templatefit-0
 
 ipywidgets
