@@ -7,7 +7,7 @@ from IPython.display import display
 from ipywidgets import HTML, HBox, VBox, Button, Tab, Output, IntProgress, Label, BoundedIntText, IntText, Checkbox
 from scipy import interpolate
 
-import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget, config_widget
+from . import instrument_widget, foreground_widget, galaxy_widget, analysis_widget, survey_widget, config_widget
 import pypelidcalc
 from pypelidcalc.spectra import galaxy, linesim
 from pypelidcalc.survey import phot, optics

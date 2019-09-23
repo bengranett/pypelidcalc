@@ -4,7 +4,7 @@ cimport numpy as np
 from cython.view cimport array as cvarray
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 
-cimport bulgy_disk
+from . cimport bulgy_disk
 
 
 cdef double [:,:] sample_galaxy(galaxy_struct * gal, int n, double plate_scale=1.0, isotropize=1):

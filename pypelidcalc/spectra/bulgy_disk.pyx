@@ -12,8 +12,8 @@ from cython.view cimport array as cvarray
 cimport cython_gsl as gsl
 
 from pypelidcalc.cutils.rootfinder cimport RootFinder
-import _profile_calc as pc
-cimport _profile_calc as pc
+from . import _profile_calc as pc
+from . cimport _profile_calc as pc
 
 
 ctypedef struct bulgy_disk_params:
