@@ -4,6 +4,8 @@ import os
 import numpy as np
 cimport numpy as np
 
+from libc.stdlib cimport malloc, free
+
 from cython.view cimport array as cvarray
 
 from libc cimport math
@@ -217,7 +219,7 @@ cdef class LineSimulator:
 
 		return count
 
-	cpdef void make_noise_spectrum(self, Galaxy g, double scale, double[:] noise_out, int window=10):
+	cpdef void make_noise_spectrum(self, Galaxy g, double scale, double[:] noise_out):
 		""" Render the background noise spectrum.  The noise variance estimate at the location of each
 		emission line is used to extrapolate the noise over the full spectrum.
 		The extrapolation is based on the template self.noise_template.
@@ -230,70 +232,85 @@ cdef class LineSimulator:
 		    value to scale flux by
 		noise_out : numpy.ndarray
 		    output array
-		window : int
-		    Size of window around emission lines (pixels)
 
 		Returns
 		-------
 		None
 		"""
-		cdef int i, n, j, k, pix
-		cdef double amp, norm
-		cdef double [:] noise
-		cdef double [:] noise_template
-		cdef int [:] noise_count
+		cdef int nline, i, line_j, a, b, j, nline_obs
+		cdef long x
+		cdef double * line_px
+		cdef double * line_div
+		cdef double * line_bg
+		cdef double * templ_amp
+		cdef size_t * order
+
+		cdef double [:] noise_template = self.noise_template
 		cdef galaxy_struct * gal = g.gal
 
-		noise_template = self.noise_template
-		noise = self.image_tmp
-		noise_count = cvarray(shape=(self.nx,), itemsize=sizeof(int), format='i')
-
 		with nogil:
+			nline = gal.line_count
 
-			for i in range(self.nx):
-				noise[i] = 0
-				noise_count[i] = 0
+			if nline < 1:
+				for i in range(self.nx):
+					noise_out[i] = noise_template[i]
+				return
 
-			n = gal.line_count
+			line_bg = <double*>malloc(nline*sizeof(double))
+			line_px = <double*>malloc(nline*sizeof(double))
 
-			amp = 0
-			norm = 0
-			for i in range(n):
-				line_var = gal.emission_line[i].background
-				# with gil:
-					# logging.info("line bg %g %g", line_var, line_var*scale)
-				if line_var > 0:
-					pix = <int>self.wavelength_to_pixel(gal.emission_line[i].wavelength_obs)
-					if pix < 0: continue
-					if pix >= self.nx: continue
-					amp += line_var*noise_template[pix]
-					norm += noise_template[pix]*noise_template[pix]
+			x = 10
 
-					for j in range(2 * window + 1):
-						k = pix + j - window
-						if k < 0: continue
-						if k >= self.nx: continue
-						noise[k] += line_var * scale
-						noise_count[k] += 1
+			# select lines with pixel locations on the spectrum
+			j = 0
+			nline_obs = 0
+			for i in range(nline):
+				x = <long>self.wavelength_to_pixel(gal.emission_line[i].wavelength_obs)
+				if x > 0 and x < self.nx:
+					line_bg[j] = gal.emission_line[i].background
+					line_px[j] = x
+					j += 1
+					nline_obs += 1
 
-			for i in range(self.nx):
-				if noise_count[i] > 0:
-					noise_out[i] += noise[i] / noise_count[i]
-				noise[i] = 0
+			if nline_obs == 0:
+				for i in range(self.nx):
+					noise_out[i] = noise_template[i]
+				free(<void*>line_bg)
+				free(<void*>line_px)
+				return
 
-			if norm > 0:
-				amp /= norm
+			line_div = <double*>malloc(nline_obs*sizeof(double))
+			templ_amp = <double*>malloc(nline_obs*sizeof(double))
+
+			if nline_obs == 1:
+				line_div[0] = self.nx
+				templ_amp[0] = line_bg[0] / noise_template[<long>line_px[0]]
 			else:
-				amp = 1.0
+				# sort in ascending pixel order
+				order = <size_t*>malloc(nline_obs*sizeof(size_t))
+				gsl.gsl_sort_index(order, line_px, 1, nline_obs)
 
-			# with gil:
-				# logging.info("amp %g", amp)
+				# compute the midpoint between lines and template amplitude
+				b = 1
+				for i in range(nline_obs-1):
+					a = order[i]
+					b = order[i+1]
+					line_div[i] = (line_px[a] + line_px[b])/2.
+					templ_amp[i] = line_bg[a] / noise_template[<long>line_px[a]]
+				templ_amp[nline_obs-1] = line_bg[b] / noise_template[<long>line_px[b]]
+				free(<void*>order)
 
+			# generate output noise spectrum
+			line_j = 0
 			for i in range(self.nx):
-				if noise_count[i] == 0:
-					noise_out[i] += amp * noise_template[i] * scale
+				if line_j < nline_obs-1 and i >= line_div[line_j]:
+					line_j += 1
+				noise_out[i] = noise_template[i] * templ_amp[line_j]
 
-		return
+			free(<void*>line_bg)
+			free(<void*>line_px)
+			free(<void*>line_div)
+			free(<void*>templ_amp)
 
 	cdef double compute_snr(self, double [:] signal, double [:] var) nogil:
 		""" Compute the signal-to-noise ratio from the 1D spectrum and variance.

@@ -42,7 +42,7 @@ cdef class LineSimulator(object):
     cdef public double[:] noise_template
 
     cdef void init_noise_template(self)
-    cpdef void make_noise_spectrum(self, Galaxy gal, double scale, double[:] noise, int window=?)
+    cpdef void make_noise_spectrum(self, Galaxy gal, double scale, double[:] noise)
 
     cdef int check_outside_extraction_window(self, double y) nogil
     cdef double get_extraction_weight(self, double y) nogil
