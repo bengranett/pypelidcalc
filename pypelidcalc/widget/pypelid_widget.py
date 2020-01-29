@@ -147,6 +147,8 @@ class PypelidWidget(object):
             ('N2b', self.galaxy.widgets['flux_n2b'].value * 1e-16),
             ('S2a', self.galaxy.widgets['flux_s2a'].value * 1e-16),
             ('S2b', self.galaxy.widgets['flux_s2b'].value * 1e-16),
+            ('S3a', self.galaxy.widgets['flux_s3a'].value * 1e-16),
+            ('S3b', self.galaxy.widgets['flux_s3b'].value * 1e-16),
             ('O3a', self.galaxy.widgets['flux_o3a'].value * 1e-16),
             ('O3b', self.galaxy.widgets['flux_o3b'].value * 1e-16),
             ('Hb', self.galaxy.widgets['flux_hb'].value * 1e-16),

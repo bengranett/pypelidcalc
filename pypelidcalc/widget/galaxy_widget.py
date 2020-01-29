@@ -29,13 +29,15 @@ class Galaxy(object):
         'flux_s2a': BoundedFloatText(value=0, min=0, max=1000, step=0.1, description='Flux SIIa 6718 ($10^{-16}$ erg/cm2/s):'),
         'flux_s2b': BoundedFloatText(value=0, min=0, max=1000, step=0.1, description='Flux SIIb 6733 ($10^{-16}$ erg/cm2/s):'),
         'flux_o2': BoundedFloatText(value=0, min=0, max=1000, step=0.1, description='Flux OII 3727 ($10^{-16}$ erg/cm2/s):'),
+        'flux_s3a': BoundedFloatText(value=0, min=0, max=1000, step=0.1, description='Flux SIIIa 9069 ($10^{-16}$ erg/cm2/s):'),
+        'flux_s3b': BoundedFloatText(value=0, min=0, max=1000, step=0.1, description='Flux SIIIb 9531 ($10^{-16}$ erg/cm2/s):'),
     }
 
     params = ('redshift', 'bulge_scale', 'disk_scale', 'bulge_fraction',
               'axis_ratio','pa','iso',
               'velocity_dispersion', 'flux_ha', 'flux_n2a', 'flux_n2b',
               'flux_hb', 'flux_o3a', 'flux_o3b', 'flux_s2a', 'flux_s2b',
-              'flux_o2')
+              'flux_o2', 'flux_s3a', 'flux_s3b')
 
     def __init__(self):
         for key, widget in self.widgets.items():
@@ -64,13 +66,15 @@ class Galaxy(object):
         o3box = HBox([self.widgets['flux_o3a'], self.widgets['flux_o3b']])
         hbbox = HBox([self.widgets['flux_hb']])
         o2box = HBox([self.widgets['flux_o2']])
+        s3box = HBox([self.widgets['flux_s3a'], self.widgets['flux_s3b']])
+
 
         elements = []
         elements += [self.widgets['redshift']]
 
         sizebox = VBox([self.widgets['bulge_scale'], self.widgets['disk_scale'], self.widgets['bulge_fraction'], self.widgets['axis_ratio'], self.widgets['pa'],self.widgets['iso'] ])
         elements += [HTML("<b>Size</b>"), HBox([sizebox, self.widgets['half_light_radius']])]
-        elements += [HTML("<b>Emission lines</b>"), self.widgets['velocity_dispersion'], self.widgets['flux_ha'], n2box,s2box,hbbox,o3box,o2box]
+        elements += [HTML("<b>Emission lines</b>"), self.widgets['velocity_dispersion'], self.widgets['flux_ha'], n2box,s2box,hbbox,o3box,o2box,s3box]
 
         self.widget = VBox(elements)
 
@@ -111,3 +115,5 @@ class Galaxy(object):
     def flux_o3a_change(self, change):
         self.widgets['flux_o3b'].value = self.widgets['flux_o3a'].value * 3.
 
+    def flux_s3b_change(self, change):
+        self.widgets['flux_s3a'].value = self.widgets['flux_s3b'].value

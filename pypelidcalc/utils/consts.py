@@ -12,7 +12,7 @@ c_kms = 2.99792458e5	#: speed of light (km/sec)
 planck = 6.6260693E-27  #: Planck constant (erg sec)
 
 
-ABzp = 48.6        #: AB magnitude zeropoint 
+ABzp = 48.6        #: AB magnitude zeropoint
 
 
 halpha = 6564.614  #: Angstrom in vacuum! (6562.801 Angstrom in the air)
@@ -52,7 +52,9 @@ line_list = {
 	'S2b': 6732.67,
 	'Hb': 4862.68,
 	'O3a': 4960.295,
-	'O3b': 5008.240
+	'O3b': 5008.240,
+	'S3a': 9068.600,
+	'S3b': 9530.600
 }
 
 #: effective wavelengths of photometric bands in angstroms

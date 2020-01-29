@@ -33,6 +33,19 @@ configurations = {
             'transmission_blue': 'none',
 
     },
+    'CSS': {
+            'collecting_surface_area': 125600,
+            'psf_amp': 1,
+            'psf_sig1': 0.4,
+            'psf_sig2': 0,
+            'pix_size': 0.13,
+            'pix_disp': 46.5,
+            'readnoise': 12,
+            'darkcurrent': 0.048,
+            'transmission_red': 'css.txt',
+            'transmission_blue': 'none',
+
+    },
     'custom': {},
 }
 
