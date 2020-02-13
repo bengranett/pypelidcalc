@@ -259,15 +259,13 @@ cdef class LineSimulator:
 			line_bg = <double*>malloc(nline*sizeof(double))
 			line_px = <double*>malloc(nline*sizeof(double))
 
-			x = 10
-
 			# select lines with pixel locations on the spectrum
 			j = 0
 			nline_obs = 0
 			for i in range(nline):
 				x = <long>self.wavelength_to_pixel(gal.emission_line[i].wavelength_obs)
 				if x > 0 and x < self.nx:
-					line_bg[j] = gal.emission_line[i].background
+					line_bg[j] = gal.emission_line[i].background * scale
 					line_px[j] = x
 					j += 1
 					nline_obs += 1
@@ -371,7 +369,7 @@ cdef class LineSimulator:
 				continue
 
 			nphot = gal.emission_line[line_i].flux**2 / gal.emission_line[line_i].variance
-			scale = nphot / gal.emission_line[line_i].flux
+			scale = nphot / gal.emission_line[line_i].flux * self.dispersion
 
 			# scale converts between counts and flux units
 			# here is the derivation such that the poisson variance of nphot
@@ -386,7 +384,7 @@ cdef class LineSimulator:
 			if (self.photon_shoot_limit > 0) and (nphot > self.photon_shoot_limit):
 				# Put a limit on the number of photons.  This sets a ceiling on SNR which depends on the profile.
 				# Recompute the scale
-				scale = self.photon_shoot_limit / gal.emission_line[line_i].flux
+				scale = self.photon_shoot_limit / gal.emission_line[line_i].flux * self.dispersion
 				nphot = self.photon_shoot_limit + rng.rng.gaussian(self.photon_shoot_limit/math.sqrt(nphot))
 			else:
 				# Poisson sample
@@ -415,7 +413,7 @@ cdef class LineSimulator:
 				image[i] += image_tmp[i] / scale  # to convert to flux units
 				image_tmp[i] = 0
 
-		self.make_noise_spectrum(g, self.extraction_norm, noise_image)
+		self.make_noise_spectrum(g, self.extraction_norm / self.dispersion**2, noise_image)
 
 		self.sample_gaussian_noise(image, noise_image, image_noisy)
 
