@@ -176,7 +176,7 @@ class PypelidWidget(object):
 
             L = linesim.LineSimulator(O, extraction_sigma=self.analysis.widgets['extraction_sigma'].value, isotropize=self.galaxy.widgets['iso'].value)
 
-            det_bg = nexp * exp_time * config['darkcurrent'] + config['readnoise']**2
+            det_bg = nexp * exp_time * config['darkcurrent'] + nexp * config['readnoise']**2
 
             det_bg += nexp * exp_time * self.foreground.widgets['foreground'].value
 
