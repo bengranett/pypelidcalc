@@ -52,14 +52,17 @@ cdef class LineSimulator:
 		self.npix = int(np.round((self.lambda_max - self.lambda_min) / self.dispersion))
 		self.lambda_max = self.lambda_min + self.npix * self.dispersion
 
-		self.extraction_window = <int> math.round(extraction_window * extraction_sigma)
+		# extraction window must be odd
+		self.extraction_window = extraction_window
+		if not self.extraction_window % 2:
+			self.extraction_window += 1
 
 		self.photon_shoot_limit = photon_shoot_limit
 
 		self.isotropize = int(isotropize)
 
 		self.binsx = np.arange(self.npix + 1) - 0.5
-		self.binsy = np.arange(-self.extraction_window, self.extraction_window + 2) - 0.5
+		self.binsy = np.arange(-self.extraction_window//2, self.extraction_window//2 + 2) - 0.5
 
 		self.init_extraction_weights(extraction_weights, extraction_sigma)
 
@@ -85,8 +88,7 @@ cdef class LineSimulator:
 		""" """
 		cdef double norm
 
-		bin_c = np.arange(-self.extraction_window, self.extraction_window + 1)
-
+		bin_c = np.arange(-self.extraction_window//2, self.extraction_window//2 + 1)
 		# logging.info("extraction window %i with weights %s", len(bin_c), str(extraction_weights))
 
 		if extraction_weights:
@@ -94,7 +96,7 @@ cdef class LineSimulator:
 		else:
 			self.extraction_weights = np.ones(len(bin_c))
 
-		assert self.extraction_weights.shape[0] == 2 * self.extraction_window + 1
+		assert self.extraction_weights.shape[0] == self.extraction_window
 
 		norm = 0
 		for i in range(self.extraction_weights.shape[0]):
@@ -122,9 +124,9 @@ cdef class LineSimulator:
 
 	cdef int check_outside_extraction_window(self, double y) nogil:
 		""" """
-		if y > self.extraction_window:
+		if y > self.extraction_window/2.:
 			return 1
-		if -y > self.extraction_window:
+		if -y > self.extraction_window/2.:
 			return 1
 		return 0
 
@@ -132,13 +134,13 @@ cdef class LineSimulator:
 		""" """
 		cdef int i
 
-		i = <int>(y + self.extraction_window + 0.5)
+		i = <int>(y + self.extraction_window/2.)
 
 		if i < 0:
 			i = 0
 
-		if i > self.extraction_window*2:
-			i = <int>self.extraction_window*2
+		if i > self.extraction_window:
+			i = <int>self.extraction_window
 
 		return self.extraction_weights[i]
 
