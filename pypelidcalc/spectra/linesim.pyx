@@ -312,7 +312,7 @@ cdef class LineSimulator:
 			free(<void*>line_div)
 			free(<void*>templ_amp)
 
-	cdef double compute_snr(self, double [:] signal, double [:] var) nogil:
+	cpdef double compute_snr(self, double [:] signal, double [:] var):
 		""" Compute the signal-to-noise ratio from the 1D spectrum and variance.
 
 		Parameters
@@ -330,19 +330,20 @@ cdef class LineSimulator:
 		cdef int i, nx
 		cdef double snr
 
-		nx = signal.shape[0]
+		with nogil:
+			nx = signal.shape[0]
 
-		snr = 0
-		for i in range(nx):
-			if var[i] > 0:
-				snr += (signal[i] * signal[i]) / var[i]
+			snr = 0
+			for i in range(nx):
+				if var[i] > 0:
+					snr += signal[i] * signal[i] / var[i]
 
-		if snr > 0:
-			snr = math.sqrt(snr)
+			if snr > 0:
+				snr = math.sqrt(snr)
 
 		return snr
 
-	cpdef sample_spectrum(self, Galaxy g):
+	cpdef sample_spectrum(self, Galaxy g, apply_noise=True):
 		"""
 		"""
 		cdef int line_i, flag, i
@@ -370,8 +371,9 @@ cdef class LineSimulator:
 			if gal.emission_line[line_i].variance <= 0:
 				continue
 
-			nphot = gal.emission_line[line_i].flux**2 / gal.emission_line[line_i].variance
-			scale = nphot / gal.emission_line[line_i].flux * self.dispersion
+			if apply_noise:
+				nphot = gal.emission_line[line_i].flux**2 / gal.emission_line[line_i].variance
+				scale = nphot / gal.emission_line[line_i].flux * self.dispersion
 
 			# scale converts between counts and flux units
 			# here is the derivation such that the poisson variance of nphot
@@ -383,11 +385,11 @@ cdef class LineSimulator:
 			#                    = flux^2 / (flux^2 / var)
 			#                    = var
 
-			if (self.photon_shoot_limit > 0) and (nphot > self.photon_shoot_limit):
+			if (not apply_noise) or ((self.photon_shoot_limit > 0) and (nphot > self.photon_shoot_limit)):
 				# Put a limit on the number of photons.  This sets a ceiling on SNR which depends on the profile.
 				# Recompute the scale
 				scale = self.photon_shoot_limit / gal.emission_line[line_i].flux * self.dispersion
-				nphot = self.photon_shoot_limit + rng.rng.gaussian(self.photon_shoot_limit/math.sqrt(nphot))
+				nphot = self.photon_shoot_limit
 			else:
 				# Poisson sample
 				# If N>~100 use a Gaussian distribution instead of Poisson
@@ -416,8 +418,8 @@ cdef class LineSimulator:
 				image_tmp[i] = 0
 
 		self.make_noise_spectrum(g, self.extraction_norm / self.dispersion**2, noise_image)
-
-		self.sample_gaussian_noise(image, noise_image, image_noisy)
+		if apply_noise:
+			self.sample_gaussian_noise(image, noise_image, image_noisy)
 
 		return image_noisy, image, noise_image
 

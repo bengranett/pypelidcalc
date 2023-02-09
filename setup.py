@@ -96,7 +96,7 @@ ext_modules = [ ]
 
 for path in cython_files:
     name = path[:-4].replace("/",".")
-    ext_modules += [Extension(name, [path], include_dirs=include_dirs, libraries=libraries, cython_directives=cython_directives)]
+    ext_modules += [Extension(name, [path], include_dirs=include_dirs, libraries=libraries, library_dirs=library_dirs, cython_directives=cython_directives)]
 
 def unlink(path):
     if os.path.exists(path):

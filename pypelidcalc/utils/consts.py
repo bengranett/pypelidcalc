@@ -41,6 +41,9 @@ FULLCIRCLE = 360.0 #: In degrees because assume RA & Dec in survey file are in d
 ARCSEC_TO_DEG = 1./3600. #: arcsec to degree
 DEG_TO_ARCSEC = 3600. #: degree to arcsec
 
+#: convert angstrom to micron
+angstrom_to_micron = 1e-4
+
 #: emission line list (vacuum wavelengths in angstroms)
 line_list = {
 	'O2': 3727.092,

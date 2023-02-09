@@ -54,9 +54,9 @@ cdef class LineSimulator(object):
                         long n,
                         double [:] image)
 
-    cdef double compute_snr(self, double [:] signal, double [:] var) nogil
+    cpdef double compute_snr(self, double [:] signal, double [:] var)
 
-    cpdef sample_spectrum(self, Galaxy gal)
+    cpdef sample_spectrum(self, Galaxy gal, apply_noise=?)
 
     cpdef sample_noise(self, Galaxy gal)
 

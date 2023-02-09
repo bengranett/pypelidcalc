@@ -6,6 +6,6 @@ cython
 cythongsl
 plotly
 
-templatefit @ git+https://github.com/bengranett/templatefit@master#egg=templatefit-0
+#templatefit #@ git+https://github.com/bengranett/templatefit@master#egg=templatefit-0
 
 ipywidgets
