@@ -62,7 +62,7 @@ cdef class RNG(object):
         return gsl.gsl_ran_poisson(rng, n)
 
 
-cpdef RNG rng = RNG()
+cdef RNG rng = RNG()
 
 
 def seed(unsigned long int seed):

@@ -19,5 +19,5 @@ cdef class RNG:
     cdef double gaussian(self, double sigma) nogil
     cdef unsigned int poisson(self, double n) nogil
 
-cpdef RNG rng
+cdef RNG rng
 

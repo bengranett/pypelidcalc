@@ -18,10 +18,7 @@
 import sys
 
 # Always prefer setuptools over distutils
-try:
-    from setuptools import setup, Extension
-except ImportError:
-    from distutils.core import setup, Extension
+from setuptools import setup, Extension
 from distutils.command.clean import clean as Clean
 
 # To use a consistent encoding
@@ -29,31 +26,12 @@ from codecs import open
 import os
 import shutil
 
-def import_install(name, pypi_name=None):
-    """ """
-    try:
-        return __import__(name)
-    except ImportError:
-        import pip._internal
-        try:
-            if not pypi_name:
-                pypi_name = name
-            pip._internal.main(["install", pypi_name])
-            return __import__(name)
-        except:
-            print("WARNING: %s not installed."%name)
-            raise
-
-
-numpy = import_install("numpy")
-cython = import_install("cython")
-cython_gsl = import_install("cython_gsl", "cythongsl")
+import numpy
+import cython
+import cython_gsl
 
 
 here = os.path.abspath(os.path.dirname(__file__))
-
-os.system("git describe --always --dirty --broken && echo version = \\\"`git describe`\\\" > pypelidcalc/version.py")
-os.system("git rev-parse && echo git_revision = \\\"`git rev-parse HEAD`\\\" >> pypelidcalc/version.py")
 
 from pypelidcalc import __version__
 
@@ -61,12 +39,11 @@ from pypelidcalc import __version__
 with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
-
-from Cython.Distutils import build_ext, Extension
+from Cython.Build import cythonize
 
 include = [cython_gsl.get_include(), numpy.get_include()]
 libraries = cython_gsl.get_libraries() + ['m']
-library_dirs = [cython_gsl.get_library_dir()],
+library_dirs = [cython_gsl.get_library_dir()]
 include_dirs = [cython_gsl.get_cython_include_dir(),numpy.get_include()]
 
 
@@ -96,7 +73,7 @@ ext_modules = [ ]
 
 for path in cython_files:
     name = path[:-4].replace("/",".")
-    ext_modules += [Extension(name, [path], include_dirs=include_dirs, libraries=libraries, library_dirs=library_dirs, cython_directives=cython_directives)]
+    ext_modules += [Extension(name, [path], include_dirs=include_dirs, libraries=libraries, library_dirs=library_dirs)]
 
 def unlink(path):
     if os.path.exists(path):
@@ -132,8 +109,6 @@ class CleanCommand(Clean):
                 if dirname == '__pycache__':
                     shutil.rmtree(os.path.join(dirpath, dirname))
 
-
-cmdclass = {'build_ext': build_ext, 'clean': CleanCommand}
 
 
 def get_requirements():
@@ -199,9 +174,8 @@ setup(
         'pypelidcalc.widget',
         ],
 
-    cmdclass = cmdclass,
     include_dirs = include,
-    ext_modules=ext_modules,
+    ext_modules=cythonize(ext_modules, compiler_directives=cython_directives),
 
     # Alternatively, if you want to distribute just a my_module.py, uncomment
     # this:

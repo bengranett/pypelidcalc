@@ -23,7 +23,7 @@ ctypedef struct bulgy_disk_params:
     double frac
 
 
-cpdef double bulgy_disk_profile(double r, double bulge_scale, double disk_scale, double bulge_fraction) nogil:
+cpdef double bulgy_disk_profile(double r, double bulge_scale, double disk_scale, double bulge_fraction) noexcept nogil:
     """ """
     cdef double y1, y2
 
@@ -39,7 +39,7 @@ cpdef double bulgy_disk_profile(double r, double bulge_scale, double disk_scale,
     return y1 + y2
 
 
-cdef double _integrated(double r, double bulge_scale, double disk_scale, double bulge_fraction, double *deriv) nogil:
+cdef double _integrated(double r, double bulge_scale, double disk_scale, double bulge_fraction, double *deriv) noexcept nogil:
     """ """
     cdef double y1, y2, d1, d2
     cdef double *p1
@@ -81,19 +81,19 @@ def bulgy_disk_integrated(r, bulge_scale, disk_scale, bulge_fraction):
     return _integrated(r, bulge_scale, disk_scale, bulge_fraction, NULL)
 
 
-cdef double _f(double r, void * p) nogil:
+cdef double _f(double r, void * p) noexcept nogil:
     """ """
     cdef bulgy_disk_params * params = <bulgy_disk_params *>p;
     return _integrated(r, params.bulge_scale, params.disk_scale, params.bulge_fraction, NULL) - params.frac
 
-cdef double _df(double r, void * p) nogil:
+cdef double _df(double r, void * p) noexcept nogil:
     """ """
     cdef double f, df
     cdef bulgy_disk_params * params = <bulgy_disk_params *>p;
     f = _integrated(r, params.bulge_scale, params.disk_scale, params.bulge_fraction, &df) - params.frac
     return df
 
-cdef void _fdf(double r, void * p, double *f, double *df) nogil:
+cdef void _fdf(double r, void * p, double *f, double *df) noexcept nogil:
     """ """
     cdef bulgy_disk_params * params = <bulgy_disk_params *>p;
     f[0] = _integrated(r, params.bulge_scale, params.disk_scale, params.bulge_fraction, df) - params.frac
